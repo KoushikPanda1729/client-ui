@@ -1,10 +1,11 @@
 export interface User {
-  id: string;
+  id: number;
+  firstName: string;
+  lastName: string;
   email: string;
-  name: string;
-  role: "user" | "admin";
+  role: "customer" | "admin" | "manager";
   avatar?: string;
-  createdAt: string;
+  createdAt?: string;
   updatedAt?: string;
 }
 
@@ -16,7 +17,8 @@ export interface UserState {
 }
 
 export interface UpdateUserPayload {
-  id: string;
-  name?: string;
+  id: number;
+  firstName?: string;
+  lastName?: string;
   avatar?: string;
 }

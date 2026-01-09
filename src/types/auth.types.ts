@@ -6,19 +6,22 @@ export interface LoginCredentials {
 }
 
 export interface RegisterCredentials {
+  firstName: string;
+  lastName: string;
   email: string;
   password: string;
-  name: string;
 }
 
 export interface AuthResponse {
-  user: User;
-  message?: string;
+  id: number;
 }
+
+export type UserProfileResponse = User;
 
 export interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
   loading: boolean;
   error: string | null;
+  authChecked: boolean;
 }

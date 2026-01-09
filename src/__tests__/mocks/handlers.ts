@@ -1,5 +1,5 @@
 import { http, HttpResponse } from "msw";
-import { mockAuthResponse, mockUsers } from "./data";
+import { mockAuthResponse, mockUsers, mockUser } from "./data";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -17,13 +17,22 @@ export const handlers = [
     return HttpResponse.json({ message: "Logged out successfully" });
   }),
 
+  http.post(`${API_BASE_URL}/auth/refresh`, () => {
+    return HttpResponse.json(mockAuthResponse);
+  }),
+
+  http.get(`${API_BASE_URL}/auth/self`, () => {
+    return HttpResponse.json(mockUser);
+  }),
+
   // User endpoints
   http.get(`${API_BASE_URL}/users`, () => {
     return HttpResponse.json(mockUsers);
   }),
 
   http.get(`${API_BASE_URL}/users/:id`, ({ params }) => {
-    const user = mockUsers.find((u) => u.id === params.id);
+    const userId = Number(params.id);
+    const user = mockUsers.find((u) => u.id === userId);
     if (user) {
       return HttpResponse.json(user);
     }

@@ -1,23 +1,22 @@
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+import { KONG_GATEWAY_URL, AUTH_SERVICE, USER_SERVICE } from "@/config/apiConfig";
+
+export const API_BASE_URL = KONG_GATEWAY_URL;
 
 export const API_ENDPOINTS = {
   AUTH: {
-    LOGIN: "/auth/login",
-    REGISTER: "/auth/register",
-    LOGOUT: "/auth/logout",
-    REFRESH: "/auth/refresh",
-    PROFILE: "/auth/profile",
+    LOGIN: `${AUTH_SERVICE}/auth/login`,
+    REGISTER: `${AUTH_SERVICE}/auth/register`,
+    LOGOUT: `${AUTH_SERVICE}/auth/logout`,
+    REFRESH: `${AUTH_SERVICE}/auth/refresh`,
+    SELF: `${AUTH_SERVICE}/auth/self`,
   },
   USERS: {
-    LIST: "/users",
-    DETAIL: (id: string) => `/users/${id}`,
-    UPDATE: (id: string) => `/users/${id}`,
-    DELETE: (id: string) => `/users/${id}`,
+    LIST: `${USER_SERVICE}/users`,
+    DETAIL: (id: number) => `${USER_SERVICE}/users/${id}`,
+    UPDATE: (id: number) => `${USER_SERVICE}/users/${id}`,
+    DELETE: (id: number) => `${USER_SERVICE}/users/${id}`,
   },
 } as const;
-
-// LocalStorage keys
-export const USER_KEY = "user_data";
 
 export const HTTP_STATUS = {
   OK: 200,
@@ -30,7 +29,6 @@ export const HTTP_STATUS = {
 } as const;
 
 export const ROUTES = {
-  HOME: "/",
   LOGIN: "/login",
   REGISTER: "/register",
   DASHBOARD: "/dashboard",

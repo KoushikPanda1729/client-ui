@@ -10,7 +10,7 @@ class UserService {
     });
   }
 
-  async getUserById(id: string): Promise<User> {
+  async getUserById(id: number): Promise<User> {
     return apiService.get<User>(API_ENDPOINTS.USERS.DETAIL(id));
   }
 
@@ -19,7 +19,7 @@ class UserService {
     return apiService.put<User>(API_ENDPOINTS.USERS.UPDATE(id), data);
   }
 
-  async deleteUser(id: string): Promise<void> {
+  async deleteUser(id: number): Promise<void> {
     return apiService.delete<void>(API_ENDPOINTS.USERS.DELETE(id));
   }
 }

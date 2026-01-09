@@ -1,27 +1,29 @@
 "use client";
 
 import { useAppDispatch } from "@/store/hooks";
-import { login, fetchProfile } from "@/store/slices/authSlice";
+import { register, fetchProfile } from "@/store/slices/authSlice";
 import { useAuth } from "@/hooks/useAuth";
 import { useRouter } from "next/navigation";
 import { Form, Input, Button, Alert } from "antd";
-import { LockOutlined, MailOutlined } from "@ant-design/icons";
+import { LockOutlined, MailOutlined, UserOutlined } from "@ant-design/icons";
 
-interface LoginFormValues {
+interface RegisterFormValues {
+  firstName: string;
+  lastName: string;
   email: string;
   password: string;
 }
 
-export function LoginForm() {
+export function RegisterForm() {
   const dispatch = useAppDispatch();
   const router = useRouter();
   const { loading, error } = useAuth();
   const [form] = Form.useForm();
 
-  const handleSubmit = async (values: LoginFormValues) => {
-    const result = await dispatch(login(values));
-    if (login.fulfilled.match(result)) {
-      // After successful login, fetch user profile
+  const handleSubmit = async (values: RegisterFormValues) => {
+    const result = await dispatch(register(values));
+    if (register.fulfilled.match(result)) {
+      // After successful register, fetch user profile
       await dispatch(fetchProfile());
       router.push("/dashboard");
     }
@@ -30,12 +32,28 @@ export function LoginForm() {
   return (
     <Form
       form={form}
-      name="login"
+      name="register"
       onFinish={handleSubmit}
       layout="vertical"
       style={{ maxWidth: 400, margin: "0 auto" }}
       autoComplete="off"
     >
+      <Form.Item
+        name="firstName"
+        label="First Name"
+        rules={[{ required: true, message: "Please input your first name!" }]}
+      >
+        <Input prefix={<UserOutlined />} placeholder="First Name" size="large" />
+      </Form.Item>
+
+      <Form.Item
+        name="lastName"
+        label="Last Name"
+        rules={[{ required: true, message: "Please input your last name!" }]}
+      >
+        <Input prefix={<UserOutlined />} placeholder="Last Name" size="large" />
+      </Form.Item>
+
       <Form.Item
         name="email"
         label="Email"
@@ -50,7 +68,10 @@ export function LoginForm() {
       <Form.Item
         name="password"
         label="Password"
-        rules={[{ required: true, message: "Please input your password!" }]}
+        rules={[
+          { required: true, message: "Please input your password!" },
+          { min: 6, message: "Password must be at least 6 characters!" },
+        ]}
       >
         <Input.Password prefix={<LockOutlined />} placeholder="Password" size="large" />
       </Form.Item>
@@ -63,7 +84,7 @@ export function LoginForm() {
 
       <Form.Item>
         <Button type="primary" htmlType="submit" loading={loading} block size="large">
-          Login
+          Register
         </Button>
       </Form.Item>
     </Form>

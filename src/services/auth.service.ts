@@ -16,8 +16,12 @@ class AuthService {
     return apiService.post<void>(API_ENDPOINTS.AUTH.LOGOUT);
   }
 
-  async getProfile(): Promise<User> {
-    return apiService.get<User>(API_ENDPOINTS.AUTH.PROFILE);
+  async refresh(): Promise<AuthResponse> {
+    return apiService.post<AuthResponse>(API_ENDPOINTS.AUTH.REFRESH);
+  }
+
+  async getSelf(): Promise<User> {
+    return apiService.get<User>(API_ENDPOINTS.AUTH.SELF);
   }
 }
 
