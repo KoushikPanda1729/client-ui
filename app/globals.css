@@ -135,3 +135,24 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+/* Custom Ant Design Tab Styles */
+.custom-tabs .ant-tabs-tab {
+  font-weight: 500;
+  font-size: 1rem;
+  color: #6b7280;
+}
+
+.custom-tabs .ant-tabs-tab:hover {
+  color: #ff6b35;
+}
+
+.custom-tabs .ant-tabs-tab.ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: #ff6b35;
+  font-weight: 600;
+}
+
+.custom-tabs .ant-tabs-ink-bar {
+  background: #ff6b35;
+  height: 3px;
+}
