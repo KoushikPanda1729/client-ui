@@ -17,6 +17,8 @@ import {
   InstagramOutlined,
   YoutubeOutlined,
   MailOutlined,
+  MenuOutlined,
+  CloseOutlined,
 } from "@ant-design/icons";
 import Image from "next/image";
 
@@ -196,6 +198,7 @@ export default function Home() {
   const [selectedCategory, setSelectedCategory] = useState<string>("pizza");
   const [selectedSizes, setSelectedSizes] = useState<Record<number, "S" | "M" | "L">>({});
   const [cartCount, setCartCount] = useState(0);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleSizeSelect = (productId: number, size: "S" | "M" | "L") => {
     setSelectedSizes((prev) => ({ ...prev, [productId]: size }));
@@ -213,15 +216,17 @@ export default function Home() {
       <header className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            {/* Logo and Location */}
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-6 bg-[#FF6B35] rounded-full flex items-center justify-center">
-                  <div className="w-3 h-3 bg-white rounded-full"></div>
-                </div>
-                <span className="text-2xl font-bold text-gray-900">pizza</span>
+            {/* Logo */}
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 bg-[#FF6B35] rounded-full flex items-center justify-center">
+                <div className="w-3 h-3 bg-white rounded-full"></div>
               </div>
-              <div className="hidden md:flex items-center gap-2 ml-4 px-3 py-1.5 border border-gray-300 rounded-md">
+              <span className="text-xl sm:text-2xl font-bold text-gray-900">pizza</span>
+            </div>
+
+            {/* Desktop Navigation */}
+            <nav className="hidden lg:flex items-center gap-6 xl:gap-8">
+              <div className="flex items-center gap-2 px-3 py-1.5 border border-gray-300 rounded-md">
                 <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                 <Select
                   defaultValue="mumbai"
@@ -234,10 +239,6 @@ export default function Home() {
                   <Option value="bangalore">Bangalore</Option>
                 </Select>
               </div>
-            </div>
-
-            {/* Navigation */}
-            <nav className="hidden md:flex items-center gap-8">
               <a href="#menu" className="text-gray-700 hover:text-gray-900 font-medium">
                 Menu
               </a>
@@ -252,38 +253,100 @@ export default function Home() {
               </button>
             </nav>
 
-            {/* Cart and Phone */}
-            <div className="flex items-center gap-6">
+            {/* Cart, Phone and Mobile Menu */}
+            <div className="flex items-center gap-3 sm:gap-4">
               <Badge count={cartCount} showZero={false} color="#FF6B35">
-                <ShoppingCartOutlined className="text-2xl text-gray-700 cursor-pointer" />
+                <ShoppingCartOutlined className="text-xl sm:text-2xl text-gray-700 cursor-pointer" />
               </Badge>
-              <div className="flex items-center gap-2 text-gray-700">
+              <a
+                href="tel:+919800098998"
+                className="hidden sm:flex items-center gap-2 text-gray-700 hover:text-[#FF6B35] transition-colors"
+              >
                 <PhoneOutlined />
-                <span className="hidden md:inline">+91 9800 098 998</span>
-              </div>
+                <span className="hidden md:inline text-sm lg:text-base">+91 9800 098 998</span>
+              </a>
+              <button
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="lg:hidden text-gray-700 p-2"
+              >
+                {mobileMenuOpen ? (
+                  <CloseOutlined className="text-xl" />
+                ) : (
+                  <MenuOutlined className="text-xl" />
+                )}
+              </button>
             </div>
           </div>
+
+          {/* Mobile Menu */}
+          {mobileMenuOpen && (
+            <div className="lg:hidden border-t border-gray-200 py-4 space-y-3">
+              <div className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-md w-fit">
+                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                <Select
+                  defaultValue="mumbai"
+                  variant="borderless"
+                  style={{ width: 100 }}
+                  suffixIcon={null}
+                >
+                  <Option value="mumbai">Mumbai</Option>
+                  <Option value="delhi">Delhi</Option>
+                  <Option value="bangalore">Bangalore</Option>
+                </Select>
+              </div>
+              <a
+                href="#menu"
+                className="block py-2 text-gray-700 hover:text-[#FF6B35] font-medium"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Menu
+              </a>
+              <a
+                href="#orders"
+                className="block py-2 text-gray-700 hover:text-[#FF6B35] font-medium"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Orders
+              </a>
+              <button
+                onClick={() => {
+                  router.push(isAuthenticated ? "/dashboard" : "/login");
+                  setMobileMenuOpen(false);
+                }}
+                className="block py-2 text-gray-700 hover:text-[#FF6B35] font-medium w-full text-left"
+              >
+                {isAuthenticated ? "Dashboard" : "Login"}
+              </button>
+              <a
+                href="tel:+919800098998"
+                className="flex items-center gap-2 py-2 text-gray-700 hover:text-[#FF6B35] font-medium sm:hidden"
+              >
+                <PhoneOutlined />
+                <span>+91 9800 098 998</span>
+              </a>
+            </div>
+          )}
         </div>
       </header>
 
       {/* Hero Section */}
-      <section className="bg-white py-16">
+      <section className="bg-white py-8 sm:py-12 lg:py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
-            <div>
-              <h1 className="text-5xl font-bold text-gray-900 mb-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 items-center">
+            <div className="text-center lg:text-left">
+              <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
                 Get yummy pizza in <span className="text-[#FF6B35]">30 min</span>
               </h1>
-              <p className="text-gray-600 text-lg mb-8">
+              <p className="text-base sm:text-lg text-gray-600 mb-6 sm:mb-8">
                 No need to pay if, order took more than 30 min
               </p>
-              <button className="bg-[#FF6B35] hover:bg-[#FF5520] text-white px-8 py-3 rounded-lg font-medium flex items-center gap-2 transition-colors">
+              <button className="bg-[#FF6B35] hover:bg-[#FF5520] text-white px-6 sm:px-8 py-2.5 sm:py-3 rounded-lg font-medium inline-flex items-center gap-2 transition-colors text-sm sm:text-base">
                 Order Now
                 <ArrowRightOutlined />
               </button>
             </div>
-            <div className="flex justify-center">
-              <div className="relative w-full max-w-md">
+            <div className="flex justify-center mt-6 lg:mt-0">
+              <div className="relative w-full max-w-xs sm:max-w-md">
                 <Image
                   src="/image/pizza_image.png"
                   alt="Delicious Pizza"
@@ -299,68 +362,70 @@ export default function Home() {
       </section>
 
       {/* Product Catalog */}
-      <section className="py-12" id="menu">
+      <section className="py-8 sm:py-12" id="menu">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Category Tabs and Filters */}
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-            <div className="flex items-center gap-6">
-              {/* Category Tabs */}
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => setSelectedCategory("pizza")}
-                  className={`px-4 py-2 font-medium transition-colors relative ${
-                    selectedCategory === "pizza"
-                      ? "text-[#FF6B35]"
-                      : "text-gray-600 hover:text-gray-900"
-                  }`}
-                >
-                  Pizza
-                  {selectedCategory === "pizza" && (
-                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FF6B35]"></div>
-                  )}
-                </button>
-                <button
-                  onClick={() => setSelectedCategory("softdrinks")}
-                  className={`px-4 py-2 font-medium transition-colors relative ${
-                    selectedCategory === "softdrinks"
-                      ? "text-[#FF6B35]"
-                      : "text-gray-600 hover:text-gray-900"
-                  }`}
-                >
-                  Softdrinks
-                  {selectedCategory === "softdrinks" && (
-                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FF6B35]"></div>
-                  )}
-                </button>
-                <button
-                  onClick={() => setSelectedCategory("sauces")}
-                  className={`px-4 py-2 font-medium transition-colors relative ${
-                    selectedCategory === "sauces"
-                      ? "text-[#FF6B35]"
-                      : "text-gray-600 hover:text-gray-900"
-                  }`}
-                >
-                  Sauces
-                  {selectedCategory === "sauces" && (
-                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FF6B35]"></div>
-                  )}
+          <div className="flex flex-col gap-4 mb-6 sm:mb-8">
+            <div className="flex items-center justify-between gap-4 overflow-x-auto pb-2">
+              <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
+                {/* Category Tabs */}
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setSelectedCategory("pizza")}
+                    className={`px-3 sm:px-4 py-2 font-medium transition-colors relative whitespace-nowrap text-sm sm:text-base ${
+                      selectedCategory === "pizza"
+                        ? "text-[#FF6B35]"
+                        : "text-gray-600 hover:text-gray-900"
+                    }`}
+                  >
+                    Pizza
+                    {selectedCategory === "pizza" && (
+                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FF6B35]"></div>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => setSelectedCategory("softdrinks")}
+                    className={`px-3 sm:px-4 py-2 font-medium transition-colors relative whitespace-nowrap text-sm sm:text-base ${
+                      selectedCategory === "softdrinks"
+                        ? "text-[#FF6B35]"
+                        : "text-gray-600 hover:text-gray-900"
+                    }`}
+                  >
+                    Softdrinks
+                    {selectedCategory === "softdrinks" && (
+                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FF6B35]"></div>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => setSelectedCategory("sauces")}
+                    className={`px-3 sm:px-4 py-2 font-medium transition-colors relative whitespace-nowrap text-sm sm:text-base ${
+                      selectedCategory === "sauces"
+                        ? "text-[#FF6B35]"
+                        : "text-gray-600 hover:text-gray-900"
+                    }`}
+                  >
+                    Sauces
+                    {selectedCategory === "sauces" && (
+                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FF6B35]"></div>
+                    )}
+                  </button>
+                </div>
+                <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0">
+                  <SearchOutlined className="text-lg sm:text-xl text-gray-600" />
                 </button>
               </div>
-              <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-                <SearchOutlined className="text-xl text-gray-600" />
-              </button>
-            </div>
 
-            <Select
-              defaultValue="all"
-              style={{ width: 200 }}
-              className="custom-select"
-              suffixIcon={<EnvironmentOutlined className="text-gray-400" />}
-            >
-              <Option value="all">All Items</Option>
-              <Option value="vegetarian">Vegetarian</Option>
-              <Option value="non-vegetarian">Non Vegetarian</Option>
-            </Select>
+              <Select
+                defaultValue="all"
+                style={{ width: "auto", minWidth: 140 }}
+                className="custom-select flex-shrink-0"
+                size="middle"
+              >
+                <Option value="all">All Items</Option>
+                <Option value="vegetarian">Vegetarian</Option>
+                <Option value="non-vegetarian">Non Vegetarian</Option>
+              </Select>
+            </div>
           </div>
 
           {/* Product Grid */}
@@ -387,9 +452,13 @@ export default function Home() {
                   </div>
 
                   {/* Product Details */}
-                  <div className="p-4 space-y-3">
-                    <h3 className="text-lg font-bold text-gray-900">{product.name}</h3>
-                    <p className="text-sm text-gray-600 leading-relaxed">{product.description}</p>
+                  <div className="p-3 sm:p-4 space-y-2 sm:space-y-3">
+                    <h3 className="text-base sm:text-lg font-bold text-gray-900 line-clamp-1">
+                      {product.name}
+                    </h3>
+                    <p className="text-xs sm:text-sm text-gray-600 leading-relaxed line-clamp-2">
+                      {product.description}
+                    </p>
 
                     {/* Size Selection */}
                     <div className="flex gap-2">
@@ -397,7 +466,7 @@ export default function Home() {
                         <button
                           key={size}
                           onClick={() => handleSizeSelect(product.id, size)}
-                          className={`w-10 h-10 rounded-full font-semibold transition-all ${
+                          className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full font-semibold transition-all text-sm sm:text-base ${
                             selectedSize === size
                               ? "bg-[#FF6B35] text-white"
                               : "bg-white text-gray-700 border-2 border-gray-300 hover:border-[#FF6B35]"
@@ -409,15 +478,15 @@ export default function Home() {
                     </div>
 
                     {/* Price and Add to Cart */}
-                    <div className="flex items-center justify-between pt-2">
-                      <span className="text-xl font-bold text-gray-900">
+                    <div className="flex items-center justify-between pt-1 sm:pt-2">
+                      <span className="text-lg sm:text-xl font-bold text-gray-900">
                         ₹{product.prices[selectedSize]}
                       </span>
                       <button
                         onClick={() => handleAddToCart(product.id)}
-                        className="w-12 h-12 rounded-full bg-[#FF6B35] hover:bg-[#FF5520] text-white flex items-center justify-center transition-colors shadow-sm"
+                        className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-[#FF6B35] hover:bg-[#FF5520] text-white flex items-center justify-center transition-colors shadow-sm"
                       >
-                        <PlusOutlined className="text-xl" />
+                        <PlusOutlined className="text-base sm:text-xl" />
                       </button>
                     </div>
                   </div>
@@ -440,9 +509,9 @@ export default function Home() {
       )}
 
       {/* Footer */}
-      <footer className="bg-gray-900 text-gray-300 mt-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+      <footer className="bg-gray-900 text-gray-300 mt-8 sm:mt-12 lg:mt-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
             {/* About Section */}
             <div>
               <div className="flex items-center gap-2 mb-4">
