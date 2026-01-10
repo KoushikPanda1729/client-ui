@@ -12,6 +12,7 @@ import {
   UserOutlined,
   LogoutOutlined,
   CloseOutlined,
+  EnvironmentOutlined,
 } from "@ant-design/icons";
 import Link from "next/link";
 import Image from "next/image";
@@ -158,8 +159,8 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ orderId
 
             {/* Desktop Navigation */}
             <nav className="hidden lg:flex items-center gap-6 xl:gap-8">
-              <div className="flex items-center gap-2 px-3 py-1.5 border border-gray-300 rounded-md">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+              <div className="flex items-center gap-2 px-3 py-1.5 border border-gray-300 rounded-lg hover:border-[#FF6B35] transition-colors">
+                <EnvironmentOutlined className="text-[#FF6B35]" />
                 <Select
                   defaultValue="mumbai"
                   variant="borderless"
@@ -241,8 +242,8 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ orderId
           {/* Mobile Menu */}
           {mobileMenuOpen && (
             <div className="lg:hidden border-t border-gray-200 py-4 space-y-3">
-              <div className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-md w-fit">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+              <div className="flex items-center gap-2 px-3 py-1.5 border border-gray-300 rounded-lg w-fit">
+                <EnvironmentOutlined className="text-[#FF6B35]" />
                 <Select
                   defaultValue="mumbai"
                   variant="borderless"

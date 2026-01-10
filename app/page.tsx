@@ -352,8 +352,8 @@ export default function Home() {
 
             {/* Desktop Navigation */}
             <nav className="hidden lg:flex items-center gap-6 xl:gap-8">
-              <div className="flex items-center gap-2 px-3 py-1.5 border border-gray-300 rounded-md">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+              <div className="flex items-center gap-2 px-3 py-1.5 border border-gray-300 rounded-lg hover:border-[#FF6B35] transition-colors">
+                <EnvironmentOutlined className="text-[#FF6B35]" />
                 <Select
                   defaultValue="mumbai"
                   variant="borderless"
@@ -435,8 +435,8 @@ export default function Home() {
           {/* Mobile Menu */}
           {mobileMenuOpen && (
             <div className="lg:hidden border-t border-gray-200 py-4 space-y-3">
-              <div className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-md w-fit">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+              <div className="flex items-center gap-2 px-3 py-1.5 border border-gray-300 rounded-lg w-fit">
+                <EnvironmentOutlined className="text-[#FF6B35]" />
                 <Select
                   defaultValue="mumbai"
                   variant="borderless"
@@ -527,7 +527,12 @@ export default function Home() {
               <p className="text-base sm:text-lg text-gray-600 mb-6 sm:mb-8">
                 No need to pay if, order took more than 30 min
               </p>
-              <button className="bg-[#FF6B35] hover:bg-[#FF5520] text-white px-6 sm:px-8 py-2.5 sm:py-3 rounded-lg font-medium inline-flex items-center gap-2 transition-colors text-sm sm:text-base">
+              <button
+                onClick={() =>
+                  document.getElementById("menu")?.scrollIntoView({ behavior: "smooth" })
+                }
+                className="bg-[#FF6B35] hover:bg-[#FF5520] text-white px-6 sm:px-8 py-2.5 sm:py-3 rounded-lg font-medium inline-flex items-center gap-2 transition-colors text-sm sm:text-base cursor-pointer"
+              >
                 Order Now
                 <ArrowRightOutlined />
               </button>
