@@ -23,9 +23,10 @@ const { Option } = Select;
 
 interface NavbarProps {
   cartCount?: number;
+  onTenantChange?: (tenantId: string) => void;
 }
 
-export default function Navbar({ cartCount = 0 }: NavbarProps) {
+export default function Navbar({ cartCount = 0, onTenantChange }: NavbarProps) {
   const router = useRouter();
   const { isAuthenticated, user } = useAuth();
   const dispatch = useAppDispatch();
@@ -50,6 +51,9 @@ export default function Navbar({ cartCount = 0 }: NavbarProps) {
         setHasMore(response.pagination.currentPage < response.pagination.totalPages);
         if (response.data.length > 0) {
           setSelectedTenant(response.data[0].id);
+          if (onTenantChange) {
+            onTenantChange(response.data[0].id.toString());
+          }
         }
       } catch (error) {
         console.error("Failed to fetch tenants:", error);
@@ -59,7 +63,7 @@ export default function Navbar({ cartCount = 0 }: NavbarProps) {
     };
 
     fetchTenants();
-  }, []);
+  }, [onTenantChange]);
 
   const loadMoreTenants = async () => {
     if (loading || !hasMore) return;
@@ -129,6 +133,9 @@ export default function Navbar({ cartCount = 0 }: NavbarProps) {
                     loadMoreTenants();
                   } else {
                     setSelectedTenant(value);
+                    if (onTenantChange) {
+                      onTenantChange(value.toString());
+                    }
                   }
                 }}
                 variant="borderless"
@@ -224,6 +231,9 @@ export default function Navbar({ cartCount = 0 }: NavbarProps) {
                     loadMoreTenants();
                   } else {
                     setSelectedTenant(value);
+                    if (onTenantChange) {
+                      onTenantChange(value.toString());
+                    }
                   }
                 }}
                 variant="borderless"
