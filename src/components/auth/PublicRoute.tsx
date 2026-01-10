@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { ReactNode } from "react";
 import { useAppSelector } from "@/store/hooks";
 import { Spin } from "antd";
 
@@ -10,14 +9,7 @@ interface PublicRouteProps {
 }
 
 export function PublicRoute({ children }: PublicRouteProps) {
-  const { isAuthenticated, authChecked } = useAppSelector((state) => state.auth);
-  const router = useRouter();
-
-  useEffect(() => {
-    if (authChecked && isAuthenticated) {
-      router.push("/dashboard");
-    }
-  }, [isAuthenticated, authChecked, router]);
+  const { authChecked } = useAppSelector((state) => state.auth);
 
   if (!authChecked) {
     return (
@@ -25,17 +17,6 @@ export function PublicRoute({ children }: PublicRouteProps) {
         <div className="text-center">
           <Spin size="large" />
           <p className="mt-4 text-gray-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-center">
-          <Spin size="large" />
-          <p className="mt-4 text-gray-600">Redirecting...</p>
         </div>
       </div>
     );

@@ -33,7 +33,7 @@ export function RegisterForm() {
       // After successful register, fetch user profile
       await dispatch(fetchProfile());
       message.success("Registration successful!");
-      router.push("/dashboard");
+      router.push("/");
     }
   };
 

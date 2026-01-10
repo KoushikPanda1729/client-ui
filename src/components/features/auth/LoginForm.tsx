@@ -31,7 +31,7 @@ export function LoginForm() {
       // After successful login, fetch user profile
       await dispatch(fetchProfile());
       message.success("Login successful!");
-      router.push("/dashboard");
+      router.push("/");
     }
   };
 

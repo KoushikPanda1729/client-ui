@@ -3,7 +3,10 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
-import { Select, Badge } from "antd";
+import { useAppDispatch } from "@/store/hooks";
+import { logout } from "@/store/slices/authSlice";
+import { Select, Badge, Dropdown, Avatar } from "antd";
+import type { MenuProps } from "antd";
 import {
   ShoppingCartOutlined,
   PhoneOutlined,
@@ -19,6 +22,8 @@ import {
   MailOutlined,
   MenuOutlined,
   CloseOutlined,
+  UserOutlined,
+  LogoutOutlined,
 } from "@ant-design/icons";
 import Image from "next/image";
 
@@ -227,8 +232,9 @@ const toppings: Topping[] = [
 ];
 
 export default function Home() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const router = useRouter();
+  const dispatch = useAppDispatch();
   const [selectedCategory, setSelectedCategory] = useState<string>("pizza");
   const [selectedSizes, setSelectedSizes] = useState<Record<number, "S" | "M" | "L">>({});
   const [cartCount, setCartCount] = useState(0);
@@ -239,6 +245,37 @@ export default function Home() {
   const [selectedCrust, setSelectedCrust] = useState<"Thick" | "Thin">("Thick");
   const [selectedToppings, setSelectedToppings] = useState<number[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+
+  const handleLogout = async () => {
+    await dispatch(logout());
+    router.push("/");
+  };
+
+  const userMenuItems: MenuProps["items"] = [
+    {
+      key: "profile",
+      label: (
+        <div className="px-2 py-1">
+          <p className="font-semibold text-gray-900">
+            {user?.firstName} {user?.lastName}
+          </p>
+          <p className="text-sm text-gray-600">{user?.email}</p>
+          <p className="text-xs text-gray-500 mt-1">Role: {user?.role}</p>
+        </div>
+      ),
+      disabled: true,
+    },
+    {
+      type: "divider",
+    },
+    {
+      key: "logout",
+      label: "Logout",
+      icon: <LogoutOutlined />,
+      onClick: handleLogout,
+      danger: true,
+    },
+  ];
 
   // Prevent body scroll when modal is open
   useEffect(() => {
@@ -334,15 +371,9 @@ export default function Home() {
               <a href="#orders" className="text-gray-700 hover:text-gray-900 font-medium">
                 Orders
               </a>
-              <button
-                onClick={() => router.push(isAuthenticated ? "/dashboard" : "/login")}
-                className="text-gray-700 hover:text-gray-900 font-medium"
-              >
-                {isAuthenticated ? "Dashboard" : "Login"}
-              </button>
             </nav>
 
-            {/* Cart, Phone and Mobile Menu */}
+            {/* Cart, Phone, User Avatar and Mobile Menu */}
             <div className="flex items-center gap-3 sm:gap-4">
               <Badge count={cartCount} showZero={false} color="#FF6B35">
                 <ShoppingCartOutlined className="text-xl sm:text-2xl text-gray-700 cursor-pointer" />
@@ -354,6 +385,34 @@ export default function Home() {
                 <PhoneOutlined />
                 <span className="hidden md:inline text-sm lg:text-base">+91 9800 098 998</span>
               </a>
+              {isAuthenticated ? (
+                <Dropdown
+                  menu={{ items: userMenuItems }}
+                  placement="bottomRight"
+                  trigger={["click"]}
+                >
+                  <div className="hidden lg:flex items-center gap-2 cursor-pointer hover:bg-gray-50 px-3 py-2 rounded-lg transition-colors">
+                    <Avatar
+                      style={{ backgroundColor: "#FF6B35" }}
+                      icon={<UserOutlined />}
+                      size="default"
+                    />
+                    <div className="hidden xl:block text-left">
+                      <p className="text-sm font-semibold text-gray-900">
+                        {user?.firstName} {user?.lastName}
+                      </p>
+                      <p className="text-xs text-gray-600">{user?.role}</p>
+                    </div>
+                  </div>
+                </Dropdown>
+              ) : (
+                <button
+                  onClick={() => router.push("/login")}
+                  className="hidden lg:block text-gray-700 hover:text-gray-900 font-medium"
+                >
+                  Login
+                </button>
+              )}
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 className="lg:hidden text-gray-700 p-2"
@@ -397,15 +456,46 @@ export default function Home() {
               >
                 Orders
               </a>
-              <button
-                onClick={() => {
-                  router.push(isAuthenticated ? "/dashboard" : "/login");
-                  setMobileMenuOpen(false);
-                }}
-                className="block py-2 text-gray-700 hover:text-[#FF6B35] font-medium w-full text-left"
-              >
-                {isAuthenticated ? "Dashboard" : "Login"}
-              </button>
+              {isAuthenticated ? (
+                <>
+                  <div className="py-2 px-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <Avatar
+                        style={{ backgroundColor: "#FF6B35" }}
+                        icon={<UserOutlined />}
+                        size="large"
+                      />
+                      <div>
+                        <p className="font-semibold text-gray-900">
+                          {user?.firstName} {user?.lastName}
+                        </p>
+                        <p className="text-sm text-gray-600">{user?.email}</p>
+                        <p className="text-xs text-gray-500">Role: {user?.role}</p>
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      handleLogout();
+                      setMobileMenuOpen(false);
+                    }}
+                    className="flex items-center gap-2 py-2 text-red-600 hover:text-red-700 font-medium w-full text-left"
+                  >
+                    <LogoutOutlined />
+                    Logout
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => {
+                    router.push("/login");
+                    setMobileMenuOpen(false);
+                  }}
+                  className="block py-2 text-gray-700 hover:text-[#FF6B35] font-medium w-full text-left"
+                >
+                  Login
+                </button>
+              )}
               <a
                 href="tel:+919800098998"
                 className="flex items-center gap-2 py-2 text-gray-700 hover:text-[#FF6B35] font-medium sm:hidden"

@@ -31,7 +31,7 @@ export const HTTP_STATUS = {
 export const ROUTES = {
   LOGIN: "/login",
   REGISTER: "/register",
-  DASHBOARD: "/dashboard",
+  HOME: "/",
   PROFILE: "/profile",
 } as const;
 
