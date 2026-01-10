@@ -26,8 +26,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+    <html lang="en" style={{ backgroundColor: "white" }}>
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        style={{ backgroundColor: "white" }}
+      >
         <AntdRegistry>
           <ReduxProvider>
             <AuthInitializer>{children}</AuthInitializer>

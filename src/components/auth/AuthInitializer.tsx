@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useAppDispatch } from "@/store/hooks";
 import { fetchProfile } from "@/store/slices/authSlice";
+import { Spin } from "antd";
 
 export function AuthInitializer({ children }: { children: React.ReactNode }) {
   const dispatch = useAppDispatch();
@@ -15,9 +16,16 @@ export function AuthInitializer({ children }: { children: React.ReactNode }) {
     dispatch(fetchProfile()).finally(() => setInitialized(true));
   }, [dispatch]);
 
-  // Don't render children until auth is initialized
+  // Show loading screen while auth is being initialized
   if (!initialized) {
-    return null;
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <Spin size="large" />
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
   }
 
   return <>{children}</>;
