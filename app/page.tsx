@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { Select, Badge } from "antd";
@@ -35,6 +35,13 @@ interface Product {
     L: number;
   };
   category: "pizza" | "softdrinks" | "sauces";
+}
+
+interface Topping {
+  id: number;
+  name: string;
+  image: string;
+  price: number;
 }
 
 const products: Product[] = [
@@ -192,6 +199,33 @@ const products: Product[] = [
   },
 ];
 
+const toppings: Topping[] = [
+  {
+    id: 1,
+    name: "Cheddar",
+    image: "/image/pizza_image.png",
+    price: 70,
+  },
+  {
+    id: 2,
+    name: "Mushroom",
+    image: "/image/pizza_image.png",
+    price: 80,
+  },
+  {
+    id: 3,
+    name: "Chicken",
+    image: "/image/pizza_image.png",
+    price: 90,
+  },
+  {
+    id: 4,
+    name: "Jalapeño",
+    image: "/image/pizza_image.png",
+    price: 30,
+  },
+];
+
 export default function Home() {
   const { isAuthenticated } = useAuth();
   const router = useRouter();
@@ -199,6 +233,26 @@ export default function Home() {
   const [selectedSizes, setSelectedSizes] = useState<Record<number, "S" | "M" | "L">>({});
   const [cartCount, setCartCount] = useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalSelectedSize, setModalSelectedSize] = useState<"S" | "M" | "L">("L");
+  const [selectedCrust, setSelectedCrust] = useState<"Thick" | "Thin">("Thick");
+  const [selectedToppings, setSelectedToppings] = useState<number[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Prevent body scroll when modal is open
+  useEffect(() => {
+    if (isModalOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "unset";
+    }
+
+    // Cleanup function to restore scroll when component unmounts
+    return () => {
+      document.body.style.overflow = "unset";
+    };
+  }, [isModalOpen]);
 
   const handleSizeSelect = (productId: number, size: "S" | "M" | "L") => {
     setSelectedSizes((prev) => ({ ...prev, [productId]: size }));
@@ -206,6 +260,41 @@ export default function Home() {
 
   const handleAddToCart = (_productId: number) => {
     setCartCount((prev) => prev + 1);
+  };
+
+  const handleProductClick = (product: Product) => {
+    setSelectedProduct(product);
+    setModalSelectedSize("L");
+    setSelectedCrust("Thick");
+    setSelectedToppings([]);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedProduct(null);
+    setSelectedToppings([]);
+  };
+
+  const handleToggleTopping = (toppingId: number) => {
+    setSelectedToppings((prev) =>
+      prev.includes(toppingId) ? prev.filter((id) => id !== toppingId) : [...prev, toppingId]
+    );
+  };
+
+  const handleAddToCartFromModal = () => {
+    setCartCount((prev) => prev + 1);
+    handleCloseModal();
+  };
+
+  const calculateTotalPrice = () => {
+    if (!selectedProduct) return 0;
+    const basePrice = selectedProduct.prices[modalSelectedSize];
+    const toppingsPrice = selectedToppings.reduce((total, toppingId) => {
+      const topping = toppings.find((t) => t.id === toppingId);
+      return total + (topping?.price || 0);
+    }, 0);
+    return basePrice + toppingsPrice;
   };
 
   const filteredProducts = products.filter((p) => p.category === selectedCategory);
@@ -365,60 +454,68 @@ export default function Home() {
       <section className="py-8 sm:py-12" id="menu">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Category Tabs and Filters */}
-          <div className="flex flex-col gap-4 mb-6 sm:mb-8">
-            <div className="flex items-center justify-between gap-4 overflow-x-auto pb-2">
-              <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
-                {/* Category Tabs */}
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => setSelectedCategory("pizza")}
-                    className={`px-3 sm:px-4 py-2 font-medium transition-colors relative whitespace-nowrap text-sm sm:text-base ${
-                      selectedCategory === "pizza"
-                        ? "text-[#FF6B35]"
-                        : "text-gray-600 hover:text-gray-900"
-                    }`}
-                  >
-                    Pizza
-                    {selectedCategory === "pizza" && (
-                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FF6B35]"></div>
-                    )}
-                  </button>
-                  <button
-                    onClick={() => setSelectedCategory("softdrinks")}
-                    className={`px-3 sm:px-4 py-2 font-medium transition-colors relative whitespace-nowrap text-sm sm:text-base ${
-                      selectedCategory === "softdrinks"
-                        ? "text-[#FF6B35]"
-                        : "text-gray-600 hover:text-gray-900"
-                    }`}
-                  >
-                    Softdrinks
-                    {selectedCategory === "softdrinks" && (
-                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FF6B35]"></div>
-                    )}
-                  </button>
-                  <button
-                    onClick={() => setSelectedCategory("sauces")}
-                    className={`px-3 sm:px-4 py-2 font-medium transition-colors relative whitespace-nowrap text-sm sm:text-base ${
-                      selectedCategory === "sauces"
-                        ? "text-[#FF6B35]"
-                        : "text-gray-600 hover:text-gray-900"
-                    }`}
-                  >
-                    Sauces
-                    {selectedCategory === "sauces" && (
-                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FF6B35]"></div>
-                    )}
-                  </button>
-                </div>
-                <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0">
-                  <SearchOutlined className="text-lg sm:text-xl text-gray-600" />
-                </button>
+          <div className="flex items-center justify-between gap-4 mb-6 sm:mb-8 border-b border-gray-200 pb-3">
+            {/* Category Tabs */}
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setSelectedCategory("pizza")}
+                className={`px-4 py-2 font-medium transition-colors relative whitespace-nowrap ${
+                  selectedCategory === "pizza"
+                    ? "text-[#FF6B35]"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
+              >
+                Pizza
+                {selectedCategory === "pizza" && (
+                  <div className="absolute bottom-[-13px] left-0 right-0 h-0.5 bg-[#FF6B35]"></div>
+                )}
+              </button>
+              <button
+                onClick={() => setSelectedCategory("softdrinks")}
+                className={`px-4 py-2 font-medium transition-colors relative whitespace-nowrap ${
+                  selectedCategory === "softdrinks"
+                    ? "text-[#FF6B35]"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
+              >
+                Softdrinks
+                {selectedCategory === "softdrinks" && (
+                  <div className="absolute bottom-[-13px] left-0 right-0 h-0.5 bg-[#FF6B35]"></div>
+                )}
+              </button>
+              <button
+                onClick={() => setSelectedCategory("sauces")}
+                className={`px-4 py-2 font-medium transition-colors relative whitespace-nowrap ${
+                  selectedCategory === "sauces"
+                    ? "text-[#FF6B35]"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
+              >
+                Sauces
+                {selectedCategory === "sauces" && (
+                  <div className="absolute bottom-[-13px] left-0 right-0 h-0.5 bg-[#FF6B35]"></div>
+                )}
+              </button>
+            </div>
+
+            {/* Search and Filter */}
+            <div className="flex items-center gap-3">
+              {/* Search Input */}
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Search..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9 pr-4 py-2 border-2 border-[#FF6B35] rounded-lg focus:outline-none focus:ring-0 w-64 text-sm text-gray-900 placeholder-gray-400"
+                />
+                <SearchOutlined className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#FF6B35]" />
               </div>
 
               <Select
                 defaultValue="all"
-                style={{ width: "auto", minWidth: 140 }}
-                className="custom-select flex-shrink-0"
+                style={{ width: 140 }}
+                className="custom-select"
                 size="middle"
               >
                 <Option value="all">All Items</Option>
@@ -435,7 +532,8 @@ export default function Home() {
               return (
                 <div
                   key={product.id}
-                  className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow overflow-hidden"
+                  className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow overflow-hidden cursor-pointer"
+                  onClick={() => handleProductClick(product)}
                 >
                   {/* Product Image with Heart Icon */}
                   <div className="relative h-56 bg-gray-50 flex items-center justify-center">
@@ -505,6 +603,162 @@ export default function Home() {
               <ShoppingCartOutlined className="text-2xl text-white" />
             </button>
           </Badge>
+        </div>
+      )}
+
+      {/* Product Detail Modal */}
+      {isModalOpen && selectedProduct && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ backgroundColor: "rgba(0, 0, 0, 0.3)" }}
+          onClick={handleCloseModal}
+        >
+          <div
+            className="bg-white rounded-3xl max-w-5xl w-full max-h-[90vh] overflow-y-auto shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="grid md:grid-cols-2 gap-0">
+              {/* Left Side - Product Image */}
+              <div className="p-12 flex items-center justify-center bg-gray-50 rounded-l-3xl">
+                <Image
+                  src={selectedProduct.image}
+                  alt={selectedProduct.name}
+                  width={450}
+                  height={450}
+                  className="object-contain mix-blend-multiply"
+                />
+              </div>
+
+              {/* Right Side - Product Details */}
+              <div className="p-8 sm:p-10 flex flex-col relative">
+                {/* Close Button */}
+                <button
+                  onClick={handleCloseModal}
+                  className="absolute top-6 right-6 w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+                >
+                  <CloseOutlined className="text-2xl text-gray-600" />
+                </button>
+
+                {/* Product Name */}
+                <h2 className="text-3xl font-bold text-gray-900 mb-3 pr-12">
+                  {selectedProduct.name}
+                </h2>
+
+                {/* Description */}
+                <p className="text-gray-600 mb-6">{selectedProduct.description}</p>
+
+                {/* Size Selection */}
+                <div className="mb-6">
+                  <div className="flex gap-2">
+                    {(["L", "M", "S"] as const).map((size) => (
+                      <button
+                        key={size}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setModalSelectedSize(size);
+                        }}
+                        className={`px-8 py-2.5 rounded-full font-medium transition-all ${
+                          modalSelectedSize === size
+                            ? "bg-gray-200 text-gray-900"
+                            : "bg-gray-100 text-gray-600 hover:bg-gray-150"
+                        }`}
+                      >
+                        {size}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Crust Selection */}
+                {selectedProduct.category === "pizza" && (
+                  <div className="mb-8">
+                    <div className="flex gap-2">
+                      {(["Thick", "Thin"] as const).map((crust) => (
+                        <button
+                          key={crust}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedCrust(crust);
+                          }}
+                          className={`px-8 py-2.5 rounded-full font-medium transition-all ${
+                            selectedCrust === crust
+                              ? "bg-gray-200 text-gray-900"
+                              : "bg-gray-100 text-gray-600 hover:bg-gray-150"
+                          }`}
+                        >
+                          {crust}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Extra Toppings */}
+                {selectedProduct.category === "pizza" && (
+                  <div className="mb-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Extra Toppings</h3>
+                    <div className="grid grid-cols-4 gap-3">
+                      {toppings.map((topping) => {
+                        const isSelected = selectedToppings.includes(topping.id);
+                        return (
+                          <button
+                            key={topping.id}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleTopping(topping.id);
+                            }}
+                            className={`relative p-3 rounded-2xl border-2 transition-all flex flex-col items-center ${
+                              isSelected
+                                ? "border-[#FF6B35] bg-white"
+                                : "border-gray-200 bg-white hover:border-gray-300"
+                            }`}
+                          >
+                            {isSelected && (
+                              <div className="absolute top-2 right-2 w-5 h-5 bg-[#FF6B35] rounded-full flex items-center justify-center">
+                                <svg
+                                  className="w-3 h-3 text-white"
+                                  fill="none"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth="3"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                >
+                                  <path d="M5 13l4 4L19 7"></path>
+                                </svg>
+                              </div>
+                            )}
+                            <Image
+                              src={topping.image}
+                              alt={topping.name}
+                              width={48}
+                              height={48}
+                              className="object-contain mb-2"
+                            />
+                            <p className="text-xs font-medium text-gray-900 text-center">
+                              {topping.name}
+                            </p>
+                            <p className="text-xs text-gray-600">₹{topping.price}</p>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Price and Add to Cart */}
+                <div className="mt-auto pt-6 flex items-center justify-between">
+                  <p className="text-3xl font-bold text-gray-900">₹{calculateTotalPrice()}</p>
+                  <button
+                    onClick={handleAddToCartFromModal}
+                    className="bg-[#FF6B35] hover:bg-[#FF5520] text-white py-3 px-8 rounded-xl font-semibold transition-colors"
+                  >
+                    Add to cart
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
