@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { useAppDispatch } from "@/store/hooks";
@@ -17,6 +17,7 @@ import {
   LogoutOutlined,
 } from "@ant-design/icons";
 import Link from "next/link";
+import { tenantService, Tenant } from "@/services";
 
 const { Option } = Select;
 
@@ -29,10 +30,52 @@ export default function Navbar({ cartCount = 0 }: NavbarProps) {
   const { isAuthenticated, user } = useAuth();
   const dispatch = useAppDispatch();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [selectedTenant, setSelectedTenant] = useState<number | undefined>();
+  const [loading, setLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
 
   const handleLogout = async () => {
     await dispatch(logout());
     router.push("/");
+  };
+
+  useEffect(() => {
+    const fetchTenants = async () => {
+      try {
+        setLoading(true);
+        const response = await tenantService.getTenants(1, 10);
+        setTenants(response.data);
+        setHasMore(response.pagination.currentPage < response.pagination.totalPages);
+        if (response.data.length > 0) {
+          setSelectedTenant(response.data[0].id);
+        }
+      } catch (error) {
+        console.error("Failed to fetch tenants:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTenants();
+  }, []);
+
+  const loadMoreTenants = async () => {
+    if (loading || !hasMore) return;
+
+    try {
+      setLoading(true);
+      const nextPage = currentPage + 1;
+      const response = await tenantService.getTenants(nextPage, 10);
+      setTenants((prev) => [...prev, ...response.data]);
+      setCurrentPage(nextPage);
+      setHasMore(response.pagination.currentPage < response.pagination.totalPages);
+    } catch (error) {
+      console.error("Failed to load more tenants:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const userMenuItems: MenuProps["items"] = [
@@ -80,14 +123,30 @@ export default function Navbar({ cartCount = 0 }: NavbarProps) {
             <div className="flex items-center gap-2 px-3 py-1.5 border border-gray-300 rounded-lg hover:border-[#FF6B35] transition-colors">
               <EnvironmentOutlined className="text-[#FF6B35]" />
               <Select
-                defaultValue="mumbai"
+                value={selectedTenant}
+                onChange={(value) => {
+                  if (value === "see-more") {
+                    loadMoreTenants();
+                  } else {
+                    setSelectedTenant(value);
+                  }
+                }}
                 variant="borderless"
-                style={{ width: 100 }}
+                style={{ width: 150 }}
                 suffixIcon={null}
+                loading={loading}
+                placeholder="Select tenant"
               >
-                <Option value="mumbai">Mumbai</Option>
-                <Option value="delhi">Delhi</Option>
-                <Option value="bangalore">Bangalore</Option>
+                {tenants.map((tenant) => (
+                  <Option key={tenant.id} value={tenant.id}>
+                    {tenant.name}
+                  </Option>
+                ))}
+                {hasMore && (
+                  <Option key="see-more" value="see-more" className="text-[#FF6B35] font-medium">
+                    See More...
+                  </Option>
+                )}
               </Select>
             </div>
             <Link href="/#menu" className="text-gray-700 hover:text-[#FF6B35] font-medium">
@@ -159,14 +218,30 @@ export default function Navbar({ cartCount = 0 }: NavbarProps) {
             <div className="flex items-center gap-2 px-3 py-1.5 border border-gray-300 rounded-lg w-fit">
               <EnvironmentOutlined className="text-[#FF6B35]" />
               <Select
-                defaultValue="mumbai"
+                value={selectedTenant}
+                onChange={(value) => {
+                  if (value === "see-more") {
+                    loadMoreTenants();
+                  } else {
+                    setSelectedTenant(value);
+                  }
+                }}
                 variant="borderless"
-                style={{ width: 100 }}
+                style={{ width: 150 }}
                 suffixIcon={null}
+                loading={loading}
+                placeholder="Select tenant"
               >
-                <Option value="mumbai">Mumbai</Option>
-                <Option value="delhi">Delhi</Option>
-                <Option value="bangalore">Bangalore</Option>
+                {tenants.map((tenant) => (
+                  <Option key={tenant.id} value={tenant.id}>
+                    {tenant.name}
+                  </Option>
+                ))}
+                {hasMore && (
+                  <Option key="see-more" value="see-more" className="text-[#FF6B35] font-medium">
+                    See More...
+                  </Option>
+                )}
               </Select>
             </div>
             <Link
