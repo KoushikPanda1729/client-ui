@@ -365,18 +365,24 @@ export default function Home() {
                   <Option value="bangalore">Bangalore</Option>
                 </Select>
               </div>
-              <a href="#menu" className="text-gray-700 hover:text-gray-900 font-medium">
+              <a href="#menu" className="text-gray-700 hover:text-[#FF6B35] font-medium">
                 Menu
               </a>
-              <a href="#orders" className="text-gray-700 hover:text-gray-900 font-medium">
+              <button
+                onClick={() => router.push("/orders")}
+                className="text-gray-700 hover:text-[#FF6B35] font-medium"
+              >
                 Orders
-              </a>
+              </button>
             </nav>
 
             {/* Cart, Phone, User Avatar and Mobile Menu */}
             <div className="flex items-center gap-3 sm:gap-4">
               <Badge count={cartCount} showZero={false} color="#FF6B35">
-                <ShoppingCartOutlined className="text-xl sm:text-2xl text-gray-700 cursor-pointer" />
+                <ShoppingCartOutlined
+                  onClick={() => router.push("/cart")}
+                  className="text-xl sm:text-2xl text-gray-700 cursor-pointer"
+                />
               </Badge>
               <a
                 href="tel:+919800098998"
@@ -449,13 +455,15 @@ export default function Home() {
               >
                 Menu
               </a>
-              <a
-                href="#orders"
-                className="block py-2 text-gray-700 hover:text-[#FF6B35] font-medium"
-                onClick={() => setMobileMenuOpen(false)}
+              <button
+                onClick={() => {
+                  router.push("/orders");
+                  setMobileMenuOpen(false);
+                }}
+                className="block py-2 text-gray-700 hover:text-[#FF6B35] font-medium w-full text-left"
               >
                 Orders
-              </a>
+              </button>
               {isAuthenticated ? (
                 <>
                   <div className="py-2 px-3 bg-gray-50 rounded-lg">
@@ -689,7 +697,10 @@ export default function Home() {
       {cartCount > 0 && (
         <div className="fixed bottom-6 right-6 md:hidden">
           <Badge count={cartCount} color="#FF6B35">
-            <button className="w-14 h-14 bg-[#FF6B35] rounded-full shadow-lg flex items-center justify-center">
+            <button
+              onClick={() => router.push("/cart")}
+              className="w-14 h-14 bg-[#FF6B35] rounded-full shadow-lg flex items-center justify-center"
+            >
               <ShoppingCartOutlined className="text-2xl text-white" />
             </button>
           </Badge>
