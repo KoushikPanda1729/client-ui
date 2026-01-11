@@ -8,14 +8,16 @@ interface CategoryFilterProps {
   selectedTenantId?: string;
   selectedCategoryId?: string;
   onCategorySelect: (categoryId: string | undefined) => void;
+  initialCategories?: Category[];
 }
 
 export default function CategoryFilter({
   selectedTenantId,
   selectedCategoryId,
   onCategorySelect,
+  initialCategories = [],
 }: CategoryFilterProps) {
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [categories, setCategories] = useState<Category[]>(initialCategories);
   const [loading, setLoading] = useState(false);
 
   // Fetch categories from API

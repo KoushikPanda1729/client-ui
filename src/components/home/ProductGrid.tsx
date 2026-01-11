@@ -18,6 +18,7 @@ interface ProductGridProps {
   onProductClick: (product: APIProduct) => void;
   onAddToCart: (productId: string) => void;
   getProductPrice: (product: APIProduct, size?: string) => number;
+  initialProducts?: APIProduct[];
 }
 
 export default function ProductGrid({
@@ -26,8 +27,9 @@ export default function ProductGrid({
   onProductClick,
   onAddToCart,
   getProductPrice,
+  initialProducts = [],
 }: ProductGridProps) {
-  const [apiProducts, setApiProducts] = useState<APIProduct[]>([]);
+  const [apiProducts, setApiProducts] = useState<APIProduct[]>(initialProducts);
   const [loading, setLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
