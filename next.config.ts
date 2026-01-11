@@ -9,6 +9,12 @@ const nextConfig: NextConfig = {
         port: "",
         pathname: "/products/**",
       },
+      {
+        protocol: "https",
+        hostname: "catalog-service-product.s3.eu-north-1.amazonaws.com",
+        port: "",
+        pathname: "/toppings/**",
+      },
     ],
   },
 };

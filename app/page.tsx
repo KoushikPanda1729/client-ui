@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import Navbar from "@/components/layout/Navbar";
@@ -22,44 +22,16 @@ import {
   LoadingOutlined,
 } from "@ant-design/icons";
 import Image from "next/image";
-import { productService, Product as APIProduct } from "@/services";
+import {
+  productService,
+  Product as APIProduct,
+  toppingService,
+  Topping,
+  categoryService,
+  Category,
+} from "@/services";
 
 const { Option } = Select;
-
-interface Topping {
-  id: number;
-  name: string;
-  image: string;
-  price: number;
-}
-
-// Dummy data for toppings - keeping this until toppings API is integrated
-const toppings: Topping[] = [
-  {
-    id: 1,
-    name: "Cheddar",
-    image: "/image/pizza_image.png",
-    price: 70,
-  },
-  {
-    id: 2,
-    name: "Mushroom",
-    image: "/image/pizza_image.png",
-    price: 80,
-  },
-  {
-    id: 3,
-    name: "Chicken",
-    image: "/image/pizza_image.png",
-    price: 90,
-  },
-  {
-    id: 4,
-    name: "Jalapeño",
-    image: "/image/pizza_image.png",
-    price: 30,
-  },
-];
 
 export default function Home() {
   const { isAuthenticated } = useAuth();
@@ -69,7 +41,7 @@ export default function Home() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalSelectedSize, setModalSelectedSize] = useState<string>("medium");
   const [selectedCrust, setSelectedCrust] = useState<"Thick" | "Thin">("Thick");
-  const [selectedToppings, setSelectedToppings] = useState<number[]>([]);
+  const [selectedToppings, setSelectedToppings] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
 
   // API product state
@@ -78,6 +50,15 @@ export default function Home() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [selectedTenantId, setSelectedTenantId] = useState<string | undefined>();
+
+  // API topping state
+  const [apiToppings, setApiToppings] = useState<Topping[]>([]);
+  const [toppingsLoading, setToppingsLoading] = useState(false);
+
+  // API category state
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | undefined>();
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
 
   // Prevent body scroll when modal is open
   useEffect(() => {
@@ -92,6 +73,51 @@ export default function Home() {
       document.body.style.overflow = "unset";
     };
   }, [isModalOpen]);
+
+  // Fetch categories from API
+  useEffect(() => {
+    const fetchCategories = async () => {
+      if (!selectedTenantId) return;
+
+      try {
+        setCategoriesLoading(true);
+        const response = await categoryService.getCategories(1, 50);
+        // Filter categories by tenantId or show all if no tenantId in category
+        const filteredCategories = response.data.filter(
+          (category) => !category.tenantId || category.tenantId === selectedTenantId
+        );
+        setCategories(filteredCategories);
+      } catch (error) {
+        console.error("Failed to fetch categories:", error);
+      } finally {
+        setCategoriesLoading(false);
+      }
+    };
+
+    fetchCategories();
+  }, [selectedTenantId]);
+
+  // Fetch toppings from API
+  useEffect(() => {
+    const fetchToppings = async () => {
+      if (!selectedTenantId) {
+        setApiToppings([]);
+        return;
+      }
+
+      try {
+        setToppingsLoading(true);
+        const response = await toppingService.getToppings(1, 50, selectedTenantId);
+        setApiToppings(response.data);
+      } catch (error) {
+        console.error("Failed to fetch toppings:", error);
+      } finally {
+        setToppingsLoading(false);
+      }
+    };
+
+    fetchToppings();
+  }, [selectedTenantId]);
 
   // Fetch products from API
   useEffect(() => {
@@ -146,7 +172,7 @@ export default function Home() {
     setSelectedToppings([]);
   };
 
-  const handleToggleTopping = (toppingId: number) => {
+  const handleToggleTopping = (toppingId: string) => {
     setSelectedToppings((prev) =>
       prev.includes(toppingId) ? prev.filter((id) => id !== toppingId) : [...prev, toppingId]
     );
@@ -161,10 +187,15 @@ export default function Home() {
     if (!selectedProduct) return 0;
     const basePrice = getProductPrice(selectedProduct, modalSelectedSize);
     const toppingsPrice = selectedToppings.reduce((total, toppingId) => {
-      const topping = toppings.find((t) => t.id === toppingId);
+      const topping = apiToppings.find((t) => t._id === toppingId);
       return total + (topping?.price || 0);
     }, 0);
     return basePrice + toppingsPrice;
+  };
+
+  const handleCategorySelect = (categoryId: string | undefined) => {
+    setSelectedCategoryId(categoryId);
+    setCurrentPage(1);
   };
 
   // Helper function to get price from API product
@@ -178,15 +209,24 @@ export default function Home() {
     return 0;
   };
 
+  // Filter products by category
+  const filteredProducts = apiProducts.filter((product) => {
+    if (!selectedCategoryId) return true;
+    return product.category._id === selectedCategoryId;
+  });
+
+  // Memoized tenant change handler to prevent infinite loops
+  const handleTenantChange = useCallback((tenantId: string) => {
+    // Reset all tenant-dependent state when switching tenants
+    setSelectedTenantId(tenantId);
+    setSelectedCategoryId(undefined);
+    setApiProducts([]);
+    setCurrentPage(1);
+  }, []);
+
   return (
     <div className="min-h-screen bg-[#F5F1ED]">
-      <Navbar
-        cartCount={cartCount}
-        onTenantChange={(tenantId) => {
-          setSelectedTenantId(tenantId);
-          setCurrentPage(1);
-        }}
-      />
+      <Navbar cartCount={cartCount} onTenantChange={handleTenantChange} />
 
       {/* Hero Section */}
       <section className="bg-white py-8 sm:py-12 lg:py-16">
@@ -248,6 +288,41 @@ export default function Home() {
             </div>
           </div>
 
+          {/* Category Filters */}
+          <div className="mb-6 sm:mb-8">
+            {categoriesLoading ? (
+              <div className="flex gap-2">
+                <Spin size="small" />
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 overflow-x-auto pb-2">
+                <button
+                  onClick={() => handleCategorySelect(undefined)}
+                  className={`px-6 py-2 rounded-full font-medium transition-all whitespace-nowrap ${
+                    !selectedCategoryId
+                      ? "bg-[#FF6B35] text-white"
+                      : "bg-white text-gray-700 border border-gray-300 hover:border-[#FF6B35]"
+                  }`}
+                >
+                  All
+                </button>
+                {categories.map((category) => (
+                  <button
+                    key={category._id}
+                    onClick={() => handleCategorySelect(category._id)}
+                    className={`px-6 py-2 rounded-full font-medium transition-all whitespace-nowrap ${
+                      selectedCategoryId === category._id
+                        ? "bg-[#FF6B35] text-white"
+                        : "bg-white text-gray-700 border border-gray-300 hover:border-[#FF6B35]"
+                    }`}
+                  >
+                    {category.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Product Grid */}
           {loading && apiProducts.length === 0 ? (
             <div className="flex justify-center items-center py-20">
@@ -256,7 +331,7 @@ export default function Home() {
           ) : (
             <>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {apiProducts.map((product) => {
+                {filteredProducts.map((product) => {
                   const price = getProductPrice(product);
                   return (
                     <div
@@ -450,7 +525,64 @@ export default function Home() {
                   </div>
                 )}
 
-                {/* Extra Toppings - Hidden for now, will integrate when toppings API is available */}
+                {/* Extra Toppings */}
+                {apiToppings.length > 0 && (
+                  <div className="mb-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Extra Toppings</h3>
+                    {toppingsLoading ? (
+                      <div className="flex justify-center py-4">
+                        <Spin />
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-4 gap-3">
+                        {apiToppings.map((topping) => {
+                          const isSelected = selectedToppings.includes(topping._id);
+                          return (
+                            <button
+                              key={topping._id}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleToggleTopping(topping._id);
+                              }}
+                              className={`relative p-3 rounded-2xl border-2 transition-all flex flex-col items-center ${
+                                isSelected
+                                  ? "border-[#FF6B35] bg-white"
+                                  : "border-gray-200 bg-white hover:border-gray-300"
+                              }`}
+                            >
+                              {isSelected && (
+                                <div className="absolute top-2 right-2 w-5 h-5 bg-[#FF6B35] rounded-full flex items-center justify-center">
+                                  <svg
+                                    className="w-3 h-3 text-white"
+                                    fill="none"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth="3"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                  >
+                                    <path d="M5 13l4 4L19 7"></path>
+                                  </svg>
+                                </div>
+                              )}
+                              <Image
+                                src={topping.image}
+                                alt={topping.name}
+                                width={48}
+                                height={48}
+                                className="object-contain mb-2"
+                              />
+                              <p className="text-xs font-medium text-gray-900 text-center">
+                                {topping.name}
+                              </p>
+                              <p className="text-xs text-gray-600">₹{topping.price}</p>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Price and Add to Cart */}
                 <div className="mt-auto pt-6 flex items-center justify-between">
