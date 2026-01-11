@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, lazy, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import Navbar from "@/components/layout/Navbar";
@@ -33,6 +33,11 @@ import {
 
 const { Option } = Select;
 
+// Lazy load heavy components for better streaming
+const ProductGrid = lazy(() => import("@/components/home/ProductGrid"));
+const CategoryFilter = lazy(() => import("@/components/home/CategoryFilter"));
+const ProductSkeleton = lazy(() => import("@/components/home/ProductSkeleton"));
+
 export default function Home() {
   const { isAuthenticated } = useAuth();
   const router = useRouter();
@@ -44,21 +49,12 @@ export default function Home() {
   const [selectedToppings, setSelectedToppings] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
 
-  // API product state
-  const [apiProducts, setApiProducts] = useState<APIProduct[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
   const [selectedTenantId, setSelectedTenantId] = useState<string | undefined>();
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | undefined>();
 
   // API topping state
   const [apiToppings, setApiToppings] = useState<Topping[]>([]);
   const [toppingsLoading, setToppingsLoading] = useState(false);
-
-  // API category state
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string | undefined>();
-  const [categoriesLoading, setCategoriesLoading] = useState(false);
 
   // Prevent body scroll when modal is open
   useEffect(() => {
@@ -73,25 +69,6 @@ export default function Home() {
       document.body.style.overflow = "unset";
     };
   }, [isModalOpen]);
-
-  // Fetch categories from API
-  useEffect(() => {
-    const fetchCategories = async () => {
-      if (!selectedTenantId) return;
-
-      try {
-        setCategoriesLoading(true);
-        const response = await categoryService.getCategories(1, 50, selectedTenantId);
-        setCategories(response.data);
-      } catch (error) {
-        console.error("Failed to fetch categories:", error);
-      } finally {
-        setCategoriesLoading(false);
-      }
-    };
-
-    fetchCategories();
-  }, [selectedTenantId]);
 
   // Fetch toppings from API
   useEffect(() => {
@@ -114,41 +91,6 @@ export default function Home() {
 
     fetchToppings();
   }, [selectedTenantId]);
-
-  // Fetch products from API
-  useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        setLoading(true);
-        const response = await productService.getProducts(currentPage, 10, selectedTenantId);
-        setApiProducts(response.data);
-        setTotalPages(response.totalPages);
-      } catch (error) {
-        console.error("Failed to fetch products:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchProducts();
-  }, [currentPage, selectedTenantId]);
-
-  const loadMoreProducts = async () => {
-    if (loading || currentPage >= totalPages) return;
-
-    try {
-      setLoading(true);
-      const nextPage = currentPage + 1;
-      const response = await productService.getProducts(nextPage, 10, selectedTenantId);
-      setApiProducts((prev) => [...prev, ...response.data]);
-      setCurrentPage(nextPage);
-      setTotalPages(response.totalPages);
-    } catch (error) {
-      console.error("Failed to load more products:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleAddToCart = (_productId: string) => {
     setCartCount((prev) => prev + 1);
@@ -191,7 +133,6 @@ export default function Home() {
 
   const handleCategorySelect = (categoryId: string | undefined) => {
     setSelectedCategoryId(categoryId);
-    setCurrentPage(1);
   };
 
   // Helper function to get price from API product
@@ -205,19 +146,11 @@ export default function Home() {
     return 0;
   };
 
-  // Filter products by category
-  const filteredProducts = apiProducts.filter((product) => {
-    if (!selectedCategoryId) return true;
-    return product.category._id === selectedCategoryId;
-  });
-
   // Memoized tenant change handler to prevent infinite loops
   const handleTenantChange = useCallback((tenantId: string) => {
     // Reset all tenant-dependent state when switching tenants
     setSelectedTenantId(tenantId);
     setSelectedCategoryId(undefined);
-    setApiProducts([]);
-    setCurrentPage(1);
   }, []);
 
   return (
@@ -285,135 +218,43 @@ export default function Home() {
           </div>
 
           {/* Category Filters */}
-          <div className="mb-6 sm:mb-8">
-            {categoriesLoading ? (
-              <div className="flex gap-2">
+          <Suspense
+            fallback={
+              <div className="flex gap-2 mb-6 sm:mb-8">
                 <Spin size="small" />
               </div>
-            ) : (
-              <div className="flex items-center gap-6 overflow-x-auto pb-2 border-b border-gray-200">
-                <button
-                  onClick={() => handleCategorySelect(undefined)}
-                  className={`pb-3 font-medium transition-all whitespace-nowrap relative ${
-                    !selectedCategoryId ? "text-[#FF6B35]" : "text-gray-600 hover:text-[#FF6B35]"
-                  }`}
-                >
-                  All
-                  {!selectedCategoryId && (
-                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FF6B35]"></div>
-                  )}
-                </button>
-                {categories.map((category) => (
-                  <button
-                    key={category._id}
-                    onClick={() => handleCategorySelect(category._id)}
-                    className={`pb-3 font-medium transition-all whitespace-nowrap relative ${
-                      selectedCategoryId === category._id
-                        ? "text-[#FF6B35]"
-                        : "text-gray-600 hover:text-[#FF6B35]"
-                    }`}
-                  >
-                    {category.name}
-                    {selectedCategoryId === category._id && (
-                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FF6B35]"></div>
-                    )}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+            }
+          >
+            <CategoryFilter
+              selectedTenantId={selectedTenantId}
+              selectedCategoryId={selectedCategoryId}
+              onCategorySelect={handleCategorySelect}
+            />
+          </Suspense>
 
           {/* Product Grid */}
-          {loading && apiProducts.length === 0 ? (
-            <div className="flex justify-center items-center py-20">
-              <Spin indicator={<LoadingOutlined style={{ fontSize: 48 }} spin />} />
-            </div>
-          ) : (
-            <>
+          <Suspense
+            fallback={
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {filteredProducts.map((product) => {
-                  const price = getProductPrice(product);
-                  return (
-                    <div
-                      key={product._id}
-                      className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow overflow-hidden cursor-pointer"
-                      onClick={() => handleProductClick(product)}
-                    >
-                      {/* Product Image with Heart Icon */}
-                      <div className="relative h-56 bg-gray-50 flex items-center justify-center">
-                        <Image
-                          src={product.image}
-                          alt={product.name}
-                          width={200}
-                          height={200}
-                          className="object-contain mix-blend-multiply"
-                        />
-                        <button className="absolute top-3 right-3 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-sm hover:shadow-md transition-shadow">
-                          <HeartOutlined className="text-gray-600" />
-                        </button>
-                      </div>
-
-                      {/* Product Details */}
-                      <div className="p-3 sm:p-4 space-y-2 sm:space-y-3">
-                        <h3 className="text-base sm:text-lg font-bold text-gray-900 line-clamp-1">
-                          {product.name}
-                        </h3>
-                        <p className="text-xs sm:text-sm text-gray-600 leading-relaxed line-clamp-2">
-                          {product.description}
-                        </p>
-
-                        {/* Category Badge */}
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs bg-gray-100 px-2 py-1 rounded-full text-gray-600">
-                            {product.category.name}
-                          </span>
-                        </div>
-
-                        {/* Price and Add to Cart */}
-                        <div className="flex items-center justify-between pt-1 sm:pt-2">
-                          <span className="text-lg sm:text-xl font-bold text-gray-900">
-                            ₹{price}
-                          </span>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleAddToCart(product._id);
-                            }}
-                            className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-[#FF6B35] hover:bg-[#FF5520] text-white flex items-center justify-center transition-colors shadow-sm"
-                          >
-                            <PlusOutlined className="text-base sm:text-xl" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Load More Button */}
-              {currentPage < totalPages && (
-                <div className="flex justify-center mt-8">
-                  <button
-                    onClick={loadMoreProducts}
-                    disabled={loading}
-                    className="bg-[#FF6B35] hover:bg-[#FF5520] text-white px-8 py-3 rounded-lg font-medium inline-flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                {Array.from({ length: 8 }).map((_, index) => (
+                  <Suspense
+                    key={index}
+                    fallback={<div className="h-96 bg-gray-200 animate-pulse rounded-lg"></div>}
                   >
-                    {loading ? (
-                      <>
-                        <Spin indicator={<LoadingOutlined style={{ fontSize: 16 }} spin />} />
-                        Loading...
-                      </>
-                    ) : (
-                      <>
-                        See More
-                        <ArrowRightOutlined />
-                      </>
-                    )}
-                  </button>
-                </div>
-              )}
-            </>
-          )}
+                    <ProductSkeleton />
+                  </Suspense>
+                ))}
+              </div>
+            }
+          >
+            <ProductGrid
+              selectedTenantId={selectedTenantId}
+              selectedCategoryId={selectedCategoryId}
+              onProductClick={handleProductClick}
+              onAddToCart={handleAddToCart}
+              getProductPrice={getProductPrice}
+            />
+          </Suspense>
         </div>
       </section>
 
