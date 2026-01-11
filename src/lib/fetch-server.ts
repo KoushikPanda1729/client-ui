@@ -1,11 +1,12 @@
 import "server-only";
 
 import { cookies } from "next/headers";
-import { API_BASE_URL } from "@/utils/constants";
+import { KONG_GATEWAY_URL_SERVER } from "@/config/apiConfig";
 
 /**
  * SERVER-ONLY fetch utility for Next.js Server Components and Server Actions
  * Reads cookies from the request and forwards them to the backend
+ * Uses API_BASE_URL (server-side env var, NOT exposed to browser)
  * Do not import this in Client Components!
  */
 export async function serverFetch<T>(endpoint: string, options?: RequestInit): Promise<T> {
@@ -15,7 +16,7 @@ export async function serverFetch<T>(endpoint: string, options?: RequestInit): P
     .map((cookie) => `${cookie.name}=${cookie.value}`)
     .join("; ");
 
-  const url = `${API_BASE_URL}${endpoint}`;
+  const url = `${KONG_GATEWAY_URL_SERVER}${endpoint}`;
 
   const response = await fetch(url, {
     ...options,

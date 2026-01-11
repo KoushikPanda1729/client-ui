@@ -1,5 +1,14 @@
-// Kong Gateway URL - uses environment variable or defaults to localhost:8000
+/**
+ * Client-side Kong Gateway URL (exposed to browser)
+ * Used by Client Components with axios
+ */
 export const KONG_GATEWAY_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+
+/**
+ * Server-side Kong Gateway URL (NOT exposed to browser)
+ * Used by Server Components with serverFetch
+ */
+export const KONG_GATEWAY_URL_SERVER = process.env.API_BASE_URL || "http://localhost:8000";
 
 // API Routes - These are the service routes configured in Kong Gateway
 export const AUTH_SERVICE = "/api/auth";

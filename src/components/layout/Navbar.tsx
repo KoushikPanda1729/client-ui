@@ -50,9 +50,10 @@ export default function Navbar({ cartCount = 0, onTenantChange }: NavbarProps) {
         setTenants(response.data);
         setHasMore(response.pagination.currentPage < response.pagination.totalPages);
         if (response.data.length > 0) {
-          setSelectedTenant(response.data[0].id);
+          const firstTenantId = response.data[0].id;
+          setSelectedTenant(firstTenantId);
           if (onTenantChange) {
-            onTenantChange(response.data[0].id.toString());
+            onTenantChange(firstTenantId.toString());
           }
         }
       } catch (error) {
@@ -63,7 +64,8 @@ export default function Navbar({ cartCount = 0, onTenantChange }: NavbarProps) {
     };
 
     fetchTenants();
-  }, [onTenantChange]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
 
   const loadMoreTenants = async () => {
     if (loading || !hasMore) return;

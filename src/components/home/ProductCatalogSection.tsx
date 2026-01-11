@@ -15,12 +15,14 @@ interface ProductCatalogSectionProps {
   initialProducts: APIProduct[];
   initialCategories: Category[];
   initialToppings: Topping[];
+  selectedTenantId?: string;
 }
 
 export default function ProductCatalogSection({
   initialProducts,
   initialCategories,
   initialToppings,
+  selectedTenantId,
 }: ProductCatalogSectionProps) {
   const [cartCount, setCartCount] = useState(0);
   const [selectedProduct, setSelectedProduct] = useState<APIProduct | null>(null);
@@ -30,7 +32,6 @@ export default function ProductCatalogSection({
   const [selectedToppings, setSelectedToppings] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
 
-  const [selectedTenantId, setSelectedTenantId] = useState<string | undefined>();
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | undefined>();
 
   const [apiToppings, setApiToppings] = useState<Topping[]>(initialToppings);
@@ -47,6 +48,11 @@ export default function ProductCatalogSection({
       document.body.style.overflow = "unset";
     };
   }, [isModalOpen]);
+
+  // Reset category when tenant changes
+  useEffect(() => {
+    setSelectedCategoryId(undefined);
+  }, [selectedTenantId]);
 
   // Fetch toppings when tenant changes
   useEffect(() => {
