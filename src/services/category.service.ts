@@ -36,8 +36,17 @@ export interface CategoryResponse {
 }
 
 class CategoryService {
-  async getCategories(page: number = 1, limit: number = 50): Promise<CategoryResponse> {
-    const url = `${CATALOG_SERVICE}/categories?page=${page}&limit=${limit}`;
+  async getCategories(
+    page: number = 1,
+    limit: number = 50,
+    tenantId?: string
+  ): Promise<CategoryResponse> {
+    let url = `${CATALOG_SERVICE}/categories?page=${page}&limit=${limit}`;
+
+    if (tenantId) {
+      url += `&tenantId=${tenantId}`;
+    }
+
     const response = await apiService.get<CategoryResponse>(url);
     return response;
   }

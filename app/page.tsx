@@ -81,12 +81,8 @@ export default function Home() {
 
       try {
         setCategoriesLoading(true);
-        const response = await categoryService.getCategories(1, 50);
-        // Filter categories by tenantId or show all if no tenantId in category
-        const filteredCategories = response.data.filter(
-          (category) => !category.tenantId || category.tenantId === selectedTenantId
-        );
-        setCategories(filteredCategories);
+        const response = await categoryService.getCategories(1, 50, selectedTenantId);
+        setCategories(response.data);
       } catch (error) {
         console.error("Failed to fetch categories:", error);
       } finally {
@@ -295,28 +291,32 @@ export default function Home() {
                 <Spin size="small" />
               </div>
             ) : (
-              <div className="flex items-center gap-2 overflow-x-auto pb-2">
+              <div className="flex items-center gap-6 overflow-x-auto pb-2 border-b border-gray-200">
                 <button
                   onClick={() => handleCategorySelect(undefined)}
-                  className={`px-6 py-2 rounded-full font-medium transition-all whitespace-nowrap ${
-                    !selectedCategoryId
-                      ? "bg-[#FF6B35] text-white"
-                      : "bg-white text-gray-700 border border-gray-300 hover:border-[#FF6B35]"
+                  className={`pb-3 font-medium transition-all whitespace-nowrap relative ${
+                    !selectedCategoryId ? "text-[#FF6B35]" : "text-gray-600 hover:text-[#FF6B35]"
                   }`}
                 >
                   All
+                  {!selectedCategoryId && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FF6B35]"></div>
+                  )}
                 </button>
                 {categories.map((category) => (
                   <button
                     key={category._id}
                     onClick={() => handleCategorySelect(category._id)}
-                    className={`px-6 py-2 rounded-full font-medium transition-all whitespace-nowrap ${
+                    className={`pb-3 font-medium transition-all whitespace-nowrap relative ${
                       selectedCategoryId === category._id
-                        ? "bg-[#FF6B35] text-white"
-                        : "bg-white text-gray-700 border border-gray-300 hover:border-[#FF6B35]"
+                        ? "text-[#FF6B35]"
+                        : "text-gray-600 hover:text-[#FF6B35]"
                     }`}
                   >
                     {category.name}
+                    {selectedCategoryId === category._id && (
+                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FF6B35]"></div>
+                    )}
                   </button>
                 ))}
               </div>
