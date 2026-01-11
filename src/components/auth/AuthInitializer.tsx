@@ -3,11 +3,15 @@
 import { useEffect, useState } from "react";
 import { useAppDispatch } from "@/store/hooks";
 import { fetchProfile } from "@/store/slices/authSlice";
+import { useTokenRefresh } from "@/hooks";
 import { Spin } from "antd";
 
 export function AuthInitializer({ children }: { children: React.ReactNode }) {
   const dispatch = useAppDispatch();
   const [initialized, setInitialized] = useState(false);
+
+  // Initialize token refresh mechanism
+  useTokenRefresh();
 
   useEffect(() => {
     // Always try to restore session by calling /self endpoint

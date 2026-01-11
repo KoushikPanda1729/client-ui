@@ -9,6 +9,7 @@ export const API_ENDPOINTS = {
     LOGOUT: `${AUTH_SERVICE}/auth/logout`,
     REFRESH: `${AUTH_SERVICE}/auth/refresh`,
     SELF: `${AUTH_SERVICE}/auth/self`,
+    GET_ACCESS_TOKEN: `/api/auth/accessToken`,
   },
   USERS: {
     LIST: `${USER_SERVICE}/users`,

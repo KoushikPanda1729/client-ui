@@ -50,8 +50,8 @@ const refreshAccessToken = async (): Promise<{ id: number }> => {
 // Request interceptor
 axiosInstance.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
+    // HTTP-only cookies are automatically sent with requests (withCredentials: true)
     // No need to manually add Authorization header
-    // HTTP-only cookies are automatically sent with requests
     return config;
   },
   (error: AxiosError) => {
