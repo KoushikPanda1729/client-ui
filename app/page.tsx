@@ -1,35 +1,25 @@
 "use client";
 
-import { useState, useEffect, useCallback, lazy, Suspense } from "react";
-import { useRouter } from "next/navigation";
-import { useAuth } from "@/hooks/useAuth";
 import Navbar from "@/components/layout/Navbar";
-import { Select, Badge, Spin } from "antd";
+import { useAuth } from "@/hooks/useAuth";
+import { Product as APIProduct, Topping, toppingService } from "@/services";
 import {
-  PlusOutlined,
   ArrowRightOutlined,
-  HeartOutlined,
-  SearchOutlined,
-  FacebookOutlined,
-  TwitterOutlined,
-  InstagramOutlined,
-  YoutubeOutlined,
-  MailOutlined,
-  ShoppingCartOutlined,
   CloseOutlined,
   EnvironmentOutlined,
+  FacebookOutlined,
+  InstagramOutlined,
+  MailOutlined,
   PhoneOutlined,
-  LoadingOutlined,
+  SearchOutlined,
+  ShoppingCartOutlined,
+  TwitterOutlined,
+  YoutubeOutlined,
 } from "@ant-design/icons";
+import { Badge, Select, Spin } from "antd";
 import Image from "next/image";
-import {
-  productService,
-  Product as APIProduct,
-  toppingService,
-  Topping,
-  categoryService,
-  Category,
-} from "@/services";
+import { useRouter } from "next/navigation";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 
 const { Option } = Select;
 
