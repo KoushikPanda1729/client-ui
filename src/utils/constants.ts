@@ -21,6 +21,11 @@ export const API_ENDPOINTS = {
     CUSTOMERS: `${BILLING_SERVICE}/customers`,
     CUSTOMER_DETAIL: (customerId: string) => `${BILLING_SERVICE}/customers/${customerId}`,
     CUSTOMER_BY_USER: (userId: string) => `${BILLING_SERVICE}/customers/${userId}`,
+    ADD_ADDRESS: (customerId: string) => `${BILLING_SERVICE}/customers/${customerId}/addresses`,
+    UPDATE_ADDRESS: (customerId: string, addressId: string) =>
+      `${BILLING_SERVICE}/customers/${customerId}/addresses/${addressId}`,
+    DELETE_ADDRESS: (customerId: string, addressId: string) =>
+      `${BILLING_SERVICE}/customers/${customerId}/addresses/${addressId}`,
   },
 } as const;
 

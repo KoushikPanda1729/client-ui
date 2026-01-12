@@ -1,6 +1,12 @@
 import { apiService } from "./api";
 import { API_ENDPOINTS } from "@/utils/constants";
-import { CreateCustomerResponse, GetCustomerResponse } from "@/types/billing.types";
+import {
+  CreateCustomerResponse,
+  GetCustomerResponse,
+  AddAddressPayload,
+  UpdateAddressPayload,
+  AddressResponse,
+} from "@/types/billing.types";
 
 class BillingService {
   async createCustomer(): Promise<CreateCustomerResponse> {
@@ -33,6 +39,27 @@ class BillingService {
       console.error("Error ensuring customer exists:", error);
       throw error;
     }
+  }
+
+  async addAddress(customerId: string, payload: AddAddressPayload): Promise<AddressResponse> {
+    return apiService.post<AddressResponse>(API_ENDPOINTS.BILLING.ADD_ADDRESS(customerId), payload);
+  }
+
+  async updateAddress(
+    customerId: string,
+    addressId: string,
+    payload: UpdateAddressPayload
+  ): Promise<AddressResponse> {
+    return apiService.put<AddressResponse>(
+      API_ENDPOINTS.BILLING.UPDATE_ADDRESS(customerId, addressId),
+      payload
+    );
+  }
+
+  async deleteAddress(customerId: string, addressId: string): Promise<AddressResponse> {
+    return apiService.delete<AddressResponse>(
+      API_ENDPOINTS.BILLING.DELETE_ADDRESS(customerId, addressId)
+    );
   }
 }
 

@@ -2,13 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Input, message } from "antd";
-import { CheckCircleFilled, PlusOutlined } from "@ant-design/icons";
+import { Input, message, Modal, Checkbox } from "antd";
+import { CheckCircleFilled, PlusOutlined, EditOutlined, DeleteOutlined } from "@ant-design/icons";
 import { useAuth } from "@/hooks/useAuth";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 import Navbar from "@/components/layout/Navbar";
-import type { Address } from "@/types/cart.types";
 import { billingService } from "@/services/billing.service";
 import type { Customer } from "@/types/billing.types";
 
@@ -16,7 +15,7 @@ export default function CheckoutPage() {
   const router = useRouter();
   const { isAuthenticated, loading } = useAuth();
   const user = useSelector((state: RootState) => state.auth.user);
-  const [selectedAddressId, setSelectedAddressId] = useState(1);
+  const [selectedAddressId, setSelectedAddressId] = useState<string>("");
   const [paymentType, setPaymentType] = useState<"COD" | "Online">("COD");
   const [couponCode, setCouponCode] = useState("");
   const [customer, setCustomer] = useState<Customer | null>(null);
@@ -25,6 +24,10 @@ export default function CheckoutPage() {
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [customerLoading, setCustomerLoading] = useState(false);
+  const [showAddressModal, setShowAddressModal] = useState(false);
+  const [addressText, setAddressText] = useState("");
+  const [isDefaultAddress, setIsDefaultAddress] = useState(false);
+  const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loading && !isAuthenticated) {
@@ -56,23 +59,69 @@ export default function CheckoutPage() {
     fetchCustomerData();
   }, [isAuthenticated, loading, user]);
 
-  const addresses: Address[] = [
-    {
-      id: 1,
-      name: "Rakesh K",
-      street: "Main street, Big, no. 3",
-      building: "Ground floor",
-      apartment: "apt. 4",
-      isDefault: true,
-    },
-    {
-      id: 2,
-      name: "Rakesh K",
-      street: "Naveen street,",
-      building: "Big, no. 10 Ground floor",
-      apartment: "apt. 12",
-    },
-  ];
+  const handleAddAddress = () => {
+    setEditingAddressId(null);
+    setAddressText("");
+    setIsDefaultAddress(false);
+    setShowAddressModal(true);
+  };
+
+  const handleEditAddress = (addressId: string, text: string, isDefault: boolean) => {
+    setEditingAddressId(addressId);
+    setAddressText(text);
+    setIsDefaultAddress(isDefault);
+    setShowAddressModal(true);
+  };
+
+  const handleSaveAddress = async () => {
+    if (!customer || !addressText.trim()) {
+      message.error("Please enter an address");
+      return;
+    }
+
+    try {
+      if (editingAddressId) {
+        // Update existing address
+        const response = await billingService.updateAddress(customer._id, editingAddressId, {
+          text: addressText,
+          isDefault: isDefaultAddress,
+        });
+        setCustomer(response.customer);
+        message.success("Address updated successfully");
+      } else {
+        // Add new address
+        const response = await billingService.addAddress(customer._id, {
+          text: addressText,
+          isDefault: isDefaultAddress,
+        });
+        setCustomer(response.customer);
+        message.success("Address added successfully");
+      }
+      setShowAddressModal(false);
+      setAddressText("");
+      setIsDefaultAddress(false);
+      setEditingAddressId(null);
+    } catch (error) {
+      console.error("Error saving address:", error);
+      message.error("Failed to save address");
+    }
+  };
+
+  const handleDeleteAddress = async (addressId: string) => {
+    if (!customer) return;
+
+    try {
+      const response = await billingService.deleteAddress(customer._id, addressId);
+      setCustomer(response.customer);
+      if (selectedAddressId === addressId) {
+        setSelectedAddressId("");
+      }
+      message.success("Address deleted successfully");
+    } catch (error) {
+      console.error("Error deleting address:", error);
+      message.error("Failed to delete address");
+    }
+  };
 
   const subtotal = 4000;
   const taxes = 200;
@@ -171,29 +220,49 @@ export default function CheckoutPage() {
             <div>
               <h2 className="text-xl font-semibold text-gray-900 mb-4">Address</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {addresses.map((address) => (
+                {customer?.address.map((address) => (
                   <div
-                    key={address.id}
-                    onClick={() => setSelectedAddressId(address.id)}
+                    key={address._id}
+                    onClick={() => setSelectedAddressId(address._id)}
                     className={`p-4 border-2 rounded-lg cursor-pointer transition-all relative ${
-                      selectedAddressId === address.id
+                      selectedAddressId === address._id
                         ? "border-[#FF6B35] bg-white"
                         : "border-gray-200 bg-white hover:border-gray-300"
                     }`}
                   >
-                    {selectedAddressId === address.id && (
+                    {selectedAddressId === address._id && (
                       <CheckCircleFilled className="absolute top-3 right-3 text-[#FF6B35] text-xl" />
                     )}
-                    <h3 className="font-semibold text-gray-900 mb-2">{address.name}</h3>
-                    <p className="text-sm text-gray-600">{address.street}</p>
-                    <p className="text-sm text-gray-600">
-                      {address.building}, {address.apartment}
-                    </p>
+                    {address.isDefault && (
+                      <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded mb-2 inline-block">
+                        Default
+                      </span>
+                    )}
+                    <p className="text-sm text-gray-700 mb-3">{address.text}</p>
+                    <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        onClick={() =>
+                          handleEditAddress(address._id, address.text, address.isDefault)
+                        }
+                        className="text-blue-600 hover:text-blue-800 text-sm"
+                      >
+                        <EditOutlined /> Edit
+                      </button>
+                      <button
+                        onClick={() => handleDeleteAddress(address._id)}
+                        className="text-red-600 hover:text-red-800 text-sm"
+                      >
+                        <DeleteOutlined /> Delete
+                      </button>
+                    </div>
                   </div>
                 ))}
 
                 {/* Add Address Button */}
-                <button className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-[#FF6B35] transition-colors flex flex-col items-center justify-center gap-2 min-h-[120px]">
+                <button
+                  onClick={handleAddAddress}
+                  className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-[#FF6B35] transition-colors flex flex-col items-center justify-center gap-2 min-h-30"
+                >
                   <PlusOutlined className="text-2xl text-gray-400" />
                   <span className="text-gray-600 font-medium">Add address</span>
                 </button>
@@ -293,6 +362,41 @@ export default function CheckoutPage() {
           </div>
         </div>
       </div>
+
+      {/* Address Modal */}
+      <Modal
+        title={editingAddressId ? "Edit Address" : "Add Address"}
+        open={showAddressModal}
+        onOk={handleSaveAddress}
+        onCancel={() => {
+          setShowAddressModal(false);
+          setAddressText("");
+          setIsDefaultAddress(false);
+          setEditingAddressId(null);
+        }}
+        okText="Save"
+        cancelText="Cancel"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>
+            <Input.TextArea
+              placeholder="Enter full address (e.g., 123 Main Street, City, State, ZIP)"
+              value={addressText}
+              onChange={(e) => setAddressText(e.target.value)}
+              rows={3}
+            />
+          </div>
+          <div>
+            <Checkbox
+              checked={isDefaultAddress}
+              onChange={(e) => setIsDefaultAddress(e.target.checked)}
+            >
+              Set as default address
+            </Checkbox>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
