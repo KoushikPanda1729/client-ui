@@ -2,24 +2,59 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Input } from "antd";
+import { Input, message } from "antd";
 import { CheckCircleFilled, PlusOutlined } from "@ant-design/icons";
 import { useAuth } from "@/hooks/useAuth";
+import { useSelector } from "react-redux";
+import { RootState } from "@/store";
 import Navbar from "@/components/layout/Navbar";
 import type { Address } from "@/types/cart.types";
+import { billingService } from "@/services/billing.service";
+import type { Customer } from "@/types/billing.types";
 
 export default function CheckoutPage() {
   const router = useRouter();
   const { isAuthenticated, loading } = useAuth();
+  const user = useSelector((state: RootState) => state.auth.user);
   const [selectedAddressId, setSelectedAddressId] = useState(1);
   const [paymentType, setPaymentType] = useState<"COD" | "Online">("COD");
   const [couponCode, setCouponCode] = useState("");
+  const [customer, setCustomer] = useState<Customer | null>(null);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [customerLoading, setCustomerLoading] = useState(false);
 
   useEffect(() => {
     if (!loading && !isAuthenticated) {
       router.push("/login");
     }
   }, [isAuthenticated, loading, router]);
+
+  // Fetch customer data on page load
+  useEffect(() => {
+    const fetchCustomerData = async () => {
+      if (!isAuthenticated || loading || !user) return;
+
+      setCustomerLoading(true);
+      try {
+        const userId = user.id.toString();
+        const customerResponse = await billingService.ensureCustomerExists(userId);
+        setCustomer(customerResponse.customer);
+        setFirstName(customerResponse.customer.firstName);
+        setLastName(customerResponse.customer.lastName);
+        setEmail(customerResponse.customer.email);
+      } catch (error) {
+        console.error("Error fetching customer data:", error);
+        message.error("Failed to load customer information");
+      } finally {
+        setCustomerLoading(false);
+      }
+    };
+
+    fetchCustomerData();
+  }, [isAuthenticated, loading, user]);
 
   const addresses: Address[] = [
     {
@@ -44,9 +79,31 @@ export default function CheckoutPage() {
   const deliveryCharges = 0;
   const total = subtotal + taxes + deliveryCharges;
 
-  const handleCheckout = () => {
-    // Handle checkout logic
-    router.push("/orders");
+  const handleCheckout = async () => {
+    setCheckoutLoading(true);
+
+    try {
+      // Customer already exists from page load, use the stored customer data
+      if (!customer) {
+        message.error("Customer information not available");
+        return;
+      }
+
+      message.success("Processing checkout...");
+
+      // Step 2: TODO - Create order with customer info
+      // For now, just redirect to orders page
+      router.push("/orders");
+    } catch (error: unknown) {
+      console.error("Checkout error:", error);
+      if (error instanceof Error) {
+        message.error(error.message || "Failed to process checkout");
+      } else {
+        message.error("Failed to process checkout");
+      }
+    } finally {
+      setCheckoutLoading(false);
+    }
   };
 
   // Show loading or nothing while checking authentication
@@ -65,6 +122,51 @@ export default function CheckoutPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left Column - Address, Restaurant, Payment */}
           <div className="lg:col-span-2 space-y-6">
+            {/* Contact Details Section */}
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">Contact Details</h2>
+              <div className="bg-white p-6 rounded-lg border border-gray-200">
+                {customerLoading ? (
+                  <div className="text-gray-500">Loading customer information...</div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        First Name
+                      </label>
+                      <Input
+                        placeholder="First Name"
+                        value={firstName}
+                        onChange={(e) => setFirstName(e.target.value)}
+                        className="w-full"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Last Name
+                      </label>
+                      <Input
+                        placeholder="Last Name"
+                        value={lastName}
+                        onChange={(e) => setLastName(e.target.value)}
+                        className="w-full"
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                      <Input
+                        placeholder="Email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        type="email"
+                        className="w-full"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* Address Section */}
             <div>
               <h2 className="text-xl font-semibold text-gray-900 mb-4">Address</h2>
@@ -182,9 +284,10 @@ export default function CheckoutPage() {
               {/* Checkout Button */}
               <button
                 onClick={handleCheckout}
-                className="w-full bg-[#FF6B35] hover:bg-[#FF5520] text-white h-12 text-lg font-semibold rounded-lg transition-colors"
+                disabled={checkoutLoading}
+                className="w-full bg-[#FF6B35] hover:bg-[#FF5520] text-white h-12 text-lg font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Checkout
+                {checkoutLoading ? "Processing..." : "Checkout"}
               </button>
             </div>
           </div>

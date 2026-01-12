@@ -3,15 +3,21 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { PlusOutlined, MinusOutlined, DeleteOutlined, ShoppingOutlined } from "@ant-design/icons";
+import { message } from "antd";
 import Image from "next/image";
 import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
+import { useSelector } from "react-redux";
+import { RootState } from "@/store";
 import Navbar from "@/components/layout/Navbar";
 import type { CartItem } from "@/types/cart.types";
+import { billingService } from "@/services/billing.service";
 
 export default function CartPage() {
   const router = useRouter();
   const { isAuthenticated, loading } = useAuth();
+  const user = useSelector((state: RootState) => state.auth.user);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [cartItems, setCartItems] = useState<CartItem[]>([
     {
       id: 1,
@@ -66,6 +72,31 @@ export default function CartPage() {
 
   const handleRemoveItem = (itemId: number) => {
     setCartItems((items) => items.filter((item) => item.id !== itemId));
+  };
+
+  const handleProceedToCheckout = async () => {
+    if (!user) {
+      message.error("User not authenticated");
+      return;
+    }
+
+    setCheckoutLoading(true);
+    try {
+      // Ensure customer exists before proceeding to checkout
+      const userId = user.id.toString();
+      await billingService.ensureCustomerExists(userId);
+      message.success("Customer verified successfully!");
+      router.push("/checkout");
+    } catch (error: unknown) {
+      console.error("Error creating customer:", error);
+      if (error instanceof Error) {
+        message.error(error.message || "Failed to verify customer. Please try again.");
+      } else {
+        message.error("Failed to verify customer. Please try again.");
+      }
+    } finally {
+      setCheckoutLoading(false);
+    }
   };
 
   const subtotal = cartItems.reduce((total, item) => total + item.price * item.quantity, 0);
@@ -230,10 +261,11 @@ export default function CartPage() {
                 </div>
 
                 <button
-                  onClick={() => router.push("/checkout")}
-                  className="w-full bg-[#FF6B35] hover:bg-[#FF5520] text-white h-12 text-lg font-semibold rounded-lg transition-colors shadow-sm mb-3"
+                  onClick={handleProceedToCheckout}
+                  disabled={checkoutLoading}
+                  className="w-full bg-[#FF6B35] hover:bg-[#FF5520] text-white h-12 text-lg font-semibold rounded-lg transition-colors shadow-sm mb-3 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Proceed to Checkout
+                  {checkoutLoading ? "Processing..." : "Proceed to Checkout"}
                 </button>
 
                 <button
