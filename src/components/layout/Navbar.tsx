@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { useAppDispatch } from "@/store/hooks";
 import { logout } from "@/store/slices/authSlice";
+import { setSelectedRestaurant } from "@/store/slices/cartSlice";
 import { Select, Badge, Dropdown, Avatar } from "antd";
 import type { MenuProps } from "antd";
 import {
@@ -50,10 +51,19 @@ export default function Navbar({ cartCount = 0, onTenantChange }: NavbarProps) {
         setTenants(response.data);
         setHasMore(response.pagination.currentPage < response.pagination.totalPages);
         if (response.data.length > 0) {
-          const firstTenantId = response.data[0].id;
-          setSelectedTenant(firstTenantId);
+          const firstTenant = response.data[0];
+          setSelectedTenant(firstTenant.id);
+          // Dispatch to Redux
+          dispatch(
+            setSelectedRestaurant({
+              id: firstTenant.id,
+              name: firstTenant.name,
+              location: firstTenant.address,
+              address: firstTenant.address,
+            })
+          );
           if (onTenantChange) {
-            onTenantChange(firstTenantId.toString());
+            onTenantChange(firstTenant.id.toString());
           }
         }
       } catch (error) {
@@ -135,6 +145,18 @@ export default function Navbar({ cartCount = 0, onTenantChange }: NavbarProps) {
                     loadMoreTenants();
                   } else {
                     setSelectedTenant(value);
+                    // Find the selected tenant and dispatch to Redux
+                    const tenant = tenants.find((t) => t.id === value);
+                    if (tenant) {
+                      dispatch(
+                        setSelectedRestaurant({
+                          id: tenant.id,
+                          name: tenant.name,
+                          location: tenant.address,
+                          address: tenant.address,
+                        })
+                      );
+                    }
                     if (onTenantChange) {
                       onTenantChange(value.toString());
                     }
@@ -233,6 +255,18 @@ export default function Navbar({ cartCount = 0, onTenantChange }: NavbarProps) {
                     loadMoreTenants();
                   } else {
                     setSelectedTenant(value);
+                    // Find the selected tenant and dispatch to Redux
+                    const tenant = tenants.find((t) => t.id === value);
+                    if (tenant) {
+                      dispatch(
+                        setSelectedRestaurant({
+                          id: tenant.id,
+                          name: tenant.name,
+                          location: tenant.address,
+                          address: tenant.address,
+                        })
+                      );
+                    }
                     if (onTenantChange) {
                       onTenantChange(value.toString());
                     }

@@ -23,6 +23,13 @@ export interface Address {
   isDefault?: boolean;
 }
 
+export interface Restaurant {
+  id: number;
+  name: string;
+  location: string;
+  address?: string;
+}
+
 export interface Order {
   id: string;
   items: CartItem[];

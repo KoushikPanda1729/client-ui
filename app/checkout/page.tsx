@@ -15,6 +15,7 @@ export default function CheckoutPage() {
   const router = useRouter();
   const { isAuthenticated, loading } = useAuth();
   const user = useSelector((state: RootState) => state.auth.user);
+  const selectedRestaurant = useSelector((state: RootState) => state.cart.selectedRestaurant);
   const [selectedAddressId, setSelectedAddressId] = useState<string>("");
   const [paymentType, setPaymentType] = useState<"COD" | "Online">("COD");
   const [couponCode, setCouponCode] = useState("");
@@ -273,9 +274,14 @@ export default function CheckoutPage() {
             <div>
               <h2 className="text-xl font-semibold text-gray-900 mb-4">Restaurant</h2>
               <div className="bg-white p-4 rounded-lg border border-gray-200">
-                <h3 className="font-semibold text-gray-900">Pizzarea</h3>
-                <p className="text-sm text-gray-600">Shopping mall,</p>
-                <p className="text-sm text-gray-600">2nd floor</p>
+                {selectedRestaurant ? (
+                  <>
+                    <h3 className="font-semibold text-gray-900">{selectedRestaurant.name}</h3>
+                    <p className="text-sm text-gray-600">{selectedRestaurant.location}</p>
+                  </>
+                ) : (
+                  <p className="text-sm text-gray-500">No restaurant selected</p>
+                )}
               </div>
             </div>
 

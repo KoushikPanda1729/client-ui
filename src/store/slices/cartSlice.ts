@@ -1,14 +1,16 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
-import type { CartItem } from "@/types/cart.types";
+import type { CartItem, Restaurant } from "@/types/cart.types";
 
 interface CartState {
   items: CartItem[];
   subtotal: number;
+  selectedRestaurant: Restaurant | null;
 }
 
 const initialState: CartState = {
   items: [],
   subtotal: 0,
+  selectedRestaurant: null,
 };
 
 const calculateSubtotal = (items: CartItem[]): number => {
@@ -63,8 +65,13 @@ const cartSlice = createSlice({
       state.items = [];
       state.subtotal = 0;
     },
+
+    setSelectedRestaurant: (state, action: PayloadAction<Restaurant>) => {
+      state.selectedRestaurant = action.payload;
+    },
   },
 });
 
-export const { addToCart, removeFromCart, updateQuantity, clearCart } = cartSlice.actions;
+export const { addToCart, removeFromCart, updateQuantity, clearCart, setSelectedRestaurant } =
+  cartSlice.actions;
 export default cartSlice.reducer;
