@@ -1,6 +1,7 @@
 "use client";
 
-import { ReactNode } from "react";
+import { ReactNode, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useAppSelector } from "@/store/hooks";
 import { Spin } from "antd";
 
@@ -9,7 +10,14 @@ interface PublicRouteProps {
 }
 
 export function PublicRoute({ children }: PublicRouteProps) {
-  const { authChecked } = useAppSelector((state) => state.auth);
+  const router = useRouter();
+  const { authChecked, isAuthenticated } = useAppSelector((state) => state.auth);
+
+  useEffect(() => {
+    if (authChecked && isAuthenticated) {
+      router.push("/");
+    }
+  }, [authChecked, isAuthenticated, router]);
 
   if (!authChecked) {
     return (
@@ -20,6 +28,12 @@ export function PublicRoute({ children }: PublicRouteProps) {
         </div>
       </div>
     );
+  }
+
+  // If user is authenticated, don't render the page content
+  // (they'll be redirected by the useEffect)
+  if (isAuthenticated) {
+    return null;
   }
 
   return <>{children}</>;
