@@ -1,4 +1,4 @@
-import { KONG_GATEWAY_URL, AUTH_SERVICE, USER_SERVICE, BILLING_SERVICE } from "@/config/apiConfig";
+import { AUTH_SERVICE, BILLING_SERVICE, KONG_GATEWAY_URL, USER_SERVICE } from "@/config/apiConfig";
 
 export const API_BASE_URL = KONG_GATEWAY_URL;
 
@@ -26,6 +26,10 @@ export const API_ENDPOINTS = {
       `${BILLING_SERVICE}/customers/${customerId}/addresses/${addressId}`,
     DELETE_ADDRESS: (customerId: string, addressId: string) =>
       `${BILLING_SERVICE}/customers/${customerId}/addresses/${addressId}`,
+  },
+  COUPONS: {
+    LIST: (page: number, limit: number, tenantId: number) =>
+      `${BILLING_SERVICE}/coupons?page=${page}&limit=${limit}&tenantId=${tenantId}`,
   },
 } as const;
 

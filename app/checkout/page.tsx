@@ -9,7 +9,9 @@ import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 import Navbar from "@/components/layout/Navbar";
 import { billingService } from "@/services/billing.service";
+import { couponService } from "@/services/coupon.service";
 import type { Customer } from "@/types/billing.types";
+import type { Coupon } from "@/types/coupon.types";
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -29,6 +31,9 @@ export default function CheckoutPage() {
   const [addressText, setAddressText] = useState("");
   const [isDefaultAddress, setIsDefaultAddress] = useState(false);
   const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
+  const [showCouponModal, setShowCouponModal] = useState(false);
+  const [coupons, setCoupons] = useState<Coupon[]>([]);
+  const [couponsLoading, setCouponsLoading] = useState(false);
 
   useEffect(() => {
     if (!loading && !isAuthenticated) {
@@ -122,6 +127,32 @@ export default function CheckoutPage() {
       console.error("Error deleting address:", error);
       message.error("Failed to delete address");
     }
+  };
+
+  const handleViewCoupons = async () => {
+    if (!selectedRestaurant) {
+      message.error("Please select a restaurant first");
+      return;
+    }
+
+    setShowCouponModal(true);
+    setCouponsLoading(true);
+
+    try {
+      const response = await couponService.getCoupons(1, 10, selectedRestaurant.id);
+      setCoupons(response.data);
+    } catch (error) {
+      console.error("Error fetching coupons:", error);
+      message.error("Failed to load coupons");
+    } finally {
+      setCouponsLoading(false);
+    }
+  };
+
+  const handleApplyCoupon = (couponCode: string) => {
+    setCouponCode(couponCode);
+    setShowCouponModal(false);
+    message.success(`Coupon "${couponCode}" applied!`);
   };
 
   const subtotal = 4000;
@@ -343,6 +374,16 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
+              {/* View Coupons Button */}
+              <div className="mb-4">
+                <button
+                  onClick={handleViewCoupons}
+                  className="text-[#FF6B35] hover:text-[#FF5520] font-medium text-sm underline"
+                >
+                  View available coupons
+                </button>
+              </div>
+
               {/* Coupon Code */}
               <div className="flex gap-2 mb-6">
                 <Input
@@ -402,6 +443,62 @@ export default function CheckoutPage() {
             </Checkbox>
           </div>
         </div>
+      </Modal>
+
+      {/* Coupon Modal */}
+      <Modal
+        title="Available Coupons"
+        open={showCouponModal}
+        onCancel={() => setShowCouponModal(false)}
+        footer={null}
+        width={600}
+      >
+        {couponsLoading ? (
+          <div className="text-center py-8">
+            <p className="text-gray-500">Loading coupons...</p>
+          </div>
+        ) : coupons.length === 0 ? (
+          <div className="text-center py-8">
+            <p className="text-gray-500">No coupons available for this restaurant</p>
+          </div>
+        ) : (
+          <div className="space-y-3 max-h-96 overflow-y-auto">
+            {coupons.map((coupon) => (
+              <div
+                key={coupon._id}
+                className="border border-gray-200 rounded-lg p-4 hover:border-[#FF6B35] transition-colors"
+              >
+                <div className="flex justify-between items-start mb-2">
+                  <div>
+                    <h3 className="font-bold text-gray-900 text-lg">{coupon.code}</h3>
+                    <p className="text-sm text-gray-700 font-medium">{coupon.title}</p>
+                    {coupon.description && (
+                      <p className="text-xs text-gray-600 mt-1">{coupon.description}</p>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => handleApplyCoupon(coupon.code)}
+                    className="px-4 py-2 bg-[#FF6B35] hover:bg-[#FF5520] text-white rounded-lg text-sm font-medium transition-colors"
+                  >
+                    Apply
+                  </button>
+                </div>
+                <div className="flex gap-4 text-xs text-gray-600 mt-3">
+                  <span>
+                    Discount:{" "}
+                    {coupon.discountType === "percentage"
+                      ? `${coupon.discountValue}%`
+                      : `₹${coupon.discountValue}`}
+                  </span>
+                  {coupon.minOrderValue && <span>Min Order: ₹{coupon.minOrderValue}</span>}
+                  {coupon.maxDiscountAmount && (
+                    <span>Max Discount: ₹{coupon.maxDiscountAmount}</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </Modal>
     </div>
   );
