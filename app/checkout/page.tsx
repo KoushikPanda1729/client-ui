@@ -11,7 +11,7 @@ import Navbar from "@/components/layout/Navbar";
 import { billingService } from "@/services/billing.service";
 import { couponService } from "@/services/coupon.service";
 import type { Customer } from "@/types/billing.types";
-import type { Coupon } from "@/types/coupon.types";
+import type { Coupon, VerifiedCoupon } from "@/types/coupon.types";
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -34,6 +34,8 @@ export default function CheckoutPage() {
   const [showCouponModal, setShowCouponModal] = useState(false);
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [couponsLoading, setCouponsLoading] = useState(false);
+  const [verifiedCoupon, setVerifiedCoupon] = useState<VerifiedCoupon | null>(null);
+  const [verifyingCoupon, setVerifyingCoupon] = useState(false);
 
   useEffect(() => {
     if (!loading && !isAuthenticated) {
@@ -149,16 +151,37 @@ export default function CheckoutPage() {
     }
   };
 
-  const handleApplyCoupon = (couponCode: string) => {
-    setCouponCode(couponCode);
-    setShowCouponModal(false);
-    message.success(`Coupon "${couponCode}" applied!`);
+  const handleApplyCoupon = async (couponCode: string) => {
+    if (!selectedRestaurant) {
+      message.error("Please select a restaurant first");
+      return;
+    }
+
+    setVerifyingCoupon(true);
+    try {
+      const response = await couponService.verifyCoupon({
+        code: couponCode,
+        tenantId: selectedRestaurant.id.toString(),
+      });
+
+      setVerifiedCoupon(response.coupon);
+      setCouponCode(couponCode);
+      setShowCouponModal(false);
+      message.success(response.message);
+    } catch (error: any) {
+      console.error("Error verifying coupon:", error);
+      message.error(error?.response?.data?.message || "Invalid coupon code");
+      setVerifiedCoupon(null);
+    } finally {
+      setVerifyingCoupon(false);
+    }
   };
 
   const subtotal = 4000;
   const taxes = 200;
   const deliveryCharges = 0;
-  const total = subtotal + taxes + deliveryCharges;
+  const discount = verifiedCoupon?.discount || 0;
+  const total = subtotal + taxes + deliveryCharges - discount;
 
   const handleCheckout = async () => {
     setCheckoutLoading(true);
@@ -365,6 +388,12 @@ export default function CheckoutPage() {
                   <span>Delivery charges</span>
                   <span className="font-semibold">₹{deliveryCharges}</span>
                 </div>
+                {verifiedCoupon && (
+                  <div className="flex justify-between text-green-600">
+                    <span>Discount ({verifiedCoupon.code})</span>
+                    <span className="font-semibold">-₹{discount}</span>
+                  </div>
+                )}
               </div>
 
               <div className="border-t pt-4 mb-6">
@@ -389,13 +418,46 @@ export default function CheckoutPage() {
                 <Input
                   placeholder="Coupon code"
                   value={couponCode}
-                  onChange={(e) => setCouponCode(e.target.value)}
+                  onChange={(e) => {
+                    setCouponCode(e.target.value.toUpperCase());
+                    if (verifiedCoupon) {
+                      setVerifiedCoupon(null);
+                    }
+                  }}
                   className="flex-1"
+                  disabled={verifyingCoupon}
                 />
-                <button className="px-6 bg-[#FF6B35] hover:bg-[#FF5520] text-white border-none rounded-lg transition-colors font-medium">
-                  Apply
+                <button
+                  onClick={() => handleApplyCoupon(couponCode)}
+                  disabled={!couponCode || verifyingCoupon}
+                  className="px-6 bg-[#FF6B35] hover:bg-[#FF5520] text-white border-none rounded-lg transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {verifyingCoupon ? "Verifying..." : "Apply"}
                 </button>
               </div>
+
+              {/* Verified Coupon Details */}
+              {verifiedCoupon && (
+                <div className="mb-6 p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="font-semibold text-green-800">{verifiedCoupon.title}</p>
+                      <p className="text-sm text-green-600">
+                        ₹{verifiedCoupon.discount} discount applied
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setVerifiedCoupon(null);
+                        setCouponCode("");
+                      }}
+                      className="text-green-600 hover:text-green-800 text-sm underline"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Checkout Button */}
               <button
@@ -478,9 +540,10 @@ export default function CheckoutPage() {
                   </div>
                   <button
                     onClick={() => handleApplyCoupon(coupon.code)}
-                    className="px-4 py-2 bg-[#FF6B35] hover:bg-[#FF5520] text-white rounded-lg text-sm font-medium transition-colors"
+                    disabled={verifyingCoupon}
+                    className="px-4 py-2 bg-[#FF6B35] hover:bg-[#FF5520] text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Apply
+                    {verifyingCoupon ? "Applying..." : "Apply"}
                   </button>
                 </div>
                 <div className="flex gap-4 text-xs text-gray-600 mt-3">

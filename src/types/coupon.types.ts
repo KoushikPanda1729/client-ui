@@ -24,3 +24,20 @@ export interface CouponResponse {
     totalPages: number;
   };
 }
+
+export interface VerifyCouponRequest {
+  code: string;
+  tenantId: string;
+}
+
+export interface VerifiedCoupon {
+  code: string;
+  title: string;
+  discount: number;
+  validUpto: string;
+}
+
+export interface VerifyCouponResponse {
+  message: string;
+  coupon: VerifiedCoupon;
+}

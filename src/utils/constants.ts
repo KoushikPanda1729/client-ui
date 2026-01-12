@@ -30,6 +30,7 @@ export const API_ENDPOINTS = {
   COUPONS: {
     LIST: (page: number, limit: number, tenantId: number) =>
       `${BILLING_SERVICE}/coupons?page=${page}&limit=${limit}&tenantId=${tenantId}`,
+    VERIFY: `${BILLING_SERVICE}/coupons/verify`,
   },
 } as const;
 
