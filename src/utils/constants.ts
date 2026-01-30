@@ -27,6 +27,24 @@ export const API_ENDPOINTS = {
     DELETE_ADDRESS: (customerId: string, addressId: string) =>
       `${BILLING_SERVICE}/customers/${customerId}/addresses/${addressId}`,
   },
+  ORDERS: {
+    CREATE: `${BILLING_SERVICE}/orders`,
+    MY_ORDERS: `${BILLING_SERVICE}/orders/my-orders`,
+    DETAIL: (orderId: string) => `${BILLING_SERVICE}/orders/${orderId}`,
+    UPDATE_STATUS: (orderId: string) => `${BILLING_SERVICE}/orders/${orderId}/status`,
+  },
+  PAYMENTS: {
+    INITIATE: `${BILLING_SERVICE}/payments/initiate`,
+    GET_DETAILS: (sessionId: string) => `${BILLING_SERVICE}/payments/${sessionId}`,
+    GET_REFUNDS: (orderId: string) => `${BILLING_SERVICE}/payments/refunds/${orderId}`,
+  },
+  TAXES: {
+    GET: (tenantId: string) => `${BILLING_SERVICE}/taxes?tenantId=${tenantId}`,
+  },
+  DELIVERY: {
+    CALCULATE: (tenantId: string, orderSubTotal: number) =>
+      `${BILLING_SERVICE}/delivery/calculate?tenantId=${tenantId}&orderSubTotal=${orderSubTotal}`,
+  },
   COUPONS: {
     LIST: (page: number, limit: number, tenantId: number) =>
       `${BILLING_SERVICE}/coupons?page=${page}&limit=${limit}&tenantId=${tenantId}`,

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
-import { useAppDispatch } from "@/store/hooks";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { logout } from "@/store/slices/authSlice";
 import { setSelectedRestaurant } from "@/store/slices/cartSlice";
 import { Select, Badge, Dropdown, Avatar } from "antd";
@@ -25,12 +25,18 @@ const { Option } = Select;
 interface NavbarProps {
   cartCount?: number;
   onTenantChange?: (tenantId: string) => void;
+  allowTenantChange?: boolean; // Only true on home page
 }
 
-export default function Navbar({ cartCount = 0, onTenantChange }: NavbarProps) {
+export default function Navbar({
+  cartCount = 0,
+  onTenantChange,
+  allowTenantChange = false,
+}: NavbarProps) {
   const router = useRouter();
   const { isAuthenticated, user } = useAuth();
   const dispatch = useAppDispatch();
+  const selectedRestaurant = useAppSelector((state) => state.cart.selectedRestaurant);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [selectedTenant, setSelectedTenant] = useState<number | string | undefined>();
@@ -44,6 +50,9 @@ export default function Navbar({ cartCount = 0, onTenantChange }: NavbarProps) {
   };
 
   useEffect(() => {
+    // Only fetch tenants if tenant change is allowed (home page)
+    if (!allowTenantChange) return;
+
     const fetchTenants = async () => {
       try {
         setLoading(true);
@@ -51,19 +60,27 @@ export default function Navbar({ cartCount = 0, onTenantChange }: NavbarProps) {
         setTenants(response.data);
         setHasMore(response.pagination.currentPage < response.pagination.totalPages);
         if (response.data.length > 0) {
-          const firstTenant = response.data[0];
-          setSelectedTenant(firstTenant.id);
-          // Dispatch to Redux
-          dispatch(
-            setSelectedRestaurant({
-              id: firstTenant.id,
-              name: firstTenant.name,
-              location: firstTenant.address,
-              address: firstTenant.address,
-            })
-          );
-          if (onTenantChange) {
-            onTenantChange(firstTenant.id.toString());
+          // If no restaurant selected yet, select the first one
+          if (!selectedRestaurant) {
+            const firstTenant = response.data[0];
+            setSelectedTenant(firstTenant.id);
+            dispatch(
+              setSelectedRestaurant({
+                id: firstTenant.id,
+                name: firstTenant.name,
+                location: firstTenant.address,
+                address: firstTenant.address,
+              })
+            );
+            if (onTenantChange) {
+              onTenantChange(firstTenant.id.toString());
+            }
+          } else {
+            // Use existing selected restaurant
+            setSelectedTenant(selectedRestaurant.id);
+            if (onTenantChange) {
+              onTenantChange(selectedRestaurant.id.toString());
+            }
           }
         }
       } catch (error) {
@@ -75,7 +92,7 @@ export default function Navbar({ cartCount = 0, onTenantChange }: NavbarProps) {
 
     fetchTenants();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Only run once on mount
+  }, [allowTenantChange]); // Run when allowTenantChange changes
 
   const loadMoreTenants = async () => {
     if (loading || !hasMore) return;
@@ -136,50 +153,63 @@ export default function Navbar({ cartCount = 0, onTenantChange }: NavbarProps) {
 
           {/* Desktop Navigation */}
           <nav className="hidden lg:flex items-center gap-6 xl:gap-8">
-            <div className="flex items-center gap-2 px-3 py-1.5 border border-gray-300 rounded-lg hover:border-[#FF6B35] transition-colors">
-              <EnvironmentOutlined className="text-[#FF6B35]" />
-              <Select
-                value={selectedTenant}
-                onChange={(value) => {
-                  if (value === "see-more") {
-                    loadMoreTenants();
-                  } else {
-                    setSelectedTenant(value);
-                    // Find the selected tenant and dispatch to Redux
-                    const tenant = tenants.find((t) => t.id === value);
-                    if (tenant) {
-                      dispatch(
-                        setSelectedRestaurant({
-                          id: tenant.id,
-                          name: tenant.name,
-                          location: tenant.address,
-                          address: tenant.address,
-                        })
-                      );
+            {allowTenantChange ? (
+              /* Editable tenant selector - only on home page */
+              <div className="flex items-center gap-2 px-3 py-1.5 border border-gray-300 rounded-lg hover:border-[#FF6B35] transition-colors">
+                <EnvironmentOutlined className="text-[#FF6B35]" />
+                <Select
+                  value={selectedTenant}
+                  onChange={(value) => {
+                    if (value === "see-more") {
+                      loadMoreTenants();
+                    } else {
+                      setSelectedTenant(value);
+                      // Find the selected tenant and dispatch to Redux
+                      const tenant = tenants.find((t) => t.id === value);
+                      if (tenant) {
+                        dispatch(
+                          setSelectedRestaurant({
+                            id: tenant.id,
+                            name: tenant.name,
+                            location: tenant.address,
+                            address: tenant.address,
+                          })
+                        );
+                      }
+                      if (onTenantChange) {
+                        onTenantChange(value.toString());
+                      }
                     }
-                    if (onTenantChange) {
-                      onTenantChange(value.toString());
-                    }
-                  }
-                }}
-                variant="borderless"
-                style={{ width: 150 }}
-                suffixIcon={null}
-                loading={loading}
-                placeholder="Select tenant"
-              >
-                {tenants.map((tenant) => (
-                  <Option key={tenant.id} value={tenant.id}>
-                    {tenant.name}
-                  </Option>
-                ))}
-                {hasMore && (
-                  <Option key="see-more" value="see-more" className="text-[#FF6B35] font-medium">
-                    See More...
-                  </Option>
-                )}
-              </Select>
-            </div>
+                  }}
+                  variant="borderless"
+                  style={{ width: 150 }}
+                  suffixIcon={null}
+                  loading={loading}
+                  placeholder="Select tenant"
+                >
+                  {tenants.map((tenant) => (
+                    <Option key={tenant.id} value={tenant.id}>
+                      {tenant.name}
+                    </Option>
+                  ))}
+                  {hasMore && (
+                    <Option key="see-more" value="see-more" className="text-[#FF6B35] font-medium">
+                      See More...
+                    </Option>
+                  )}
+                </Select>
+              </div>
+            ) : (
+              /* Read-only tenant display - on other pages */
+              selectedRestaurant && (
+                <div className="flex items-center gap-2 px-3 py-1.5 border border-gray-200 rounded-lg bg-gray-50">
+                  <EnvironmentOutlined className="text-[#FF6B35]" />
+                  <span className="text-gray-700 font-medium truncate max-w-[150px]">
+                    {selectedRestaurant.name}
+                  </span>
+                </div>
+              )
+            )}
             <Link href="/#menu" className="text-gray-700 hover:text-[#FF6B35] font-medium">
               Menu
             </Link>
@@ -246,50 +276,61 @@ export default function Navbar({ cartCount = 0, onTenantChange }: NavbarProps) {
         {/* Mobile Menu */}
         {mobileMenuOpen && (
           <div className="lg:hidden border-t border-gray-200 py-4 space-y-3">
-            <div className="flex items-center gap-2 px-3 py-1.5 border border-gray-300 rounded-lg w-fit">
-              <EnvironmentOutlined className="text-[#FF6B35]" />
-              <Select
-                value={selectedTenant}
-                onChange={(value) => {
-                  if (value === "see-more") {
-                    loadMoreTenants();
-                  } else {
-                    setSelectedTenant(value);
-                    // Find the selected tenant and dispatch to Redux
-                    const tenant = tenants.find((t) => t.id === value);
-                    if (tenant) {
-                      dispatch(
-                        setSelectedRestaurant({
-                          id: tenant.id,
-                          name: tenant.name,
-                          location: tenant.address,
-                          address: tenant.address,
-                        })
-                      );
+            {allowTenantChange ? (
+              /* Editable tenant selector - only on home page */
+              <div className="flex items-center gap-2 px-3 py-1.5 border border-gray-300 rounded-lg w-fit">
+                <EnvironmentOutlined className="text-[#FF6B35]" />
+                <Select
+                  value={selectedTenant}
+                  onChange={(value) => {
+                    if (value === "see-more") {
+                      loadMoreTenants();
+                    } else {
+                      setSelectedTenant(value);
+                      // Find the selected tenant and dispatch to Redux
+                      const tenant = tenants.find((t) => t.id === value);
+                      if (tenant) {
+                        dispatch(
+                          setSelectedRestaurant({
+                            id: tenant.id,
+                            name: tenant.name,
+                            location: tenant.address,
+                            address: tenant.address,
+                          })
+                        );
+                      }
+                      if (onTenantChange) {
+                        onTenantChange(value.toString());
+                      }
                     }
-                    if (onTenantChange) {
-                      onTenantChange(value.toString());
-                    }
-                  }
-                }}
-                variant="borderless"
-                style={{ width: 150 }}
-                suffixIcon={null}
-                loading={loading}
-                placeholder="Select tenant"
-              >
-                {tenants.map((tenant) => (
-                  <Option key={tenant.id} value={tenant.id}>
-                    {tenant.name}
-                  </Option>
-                ))}
-                {hasMore && (
-                  <Option key="see-more" value="see-more" className="text-[#FF6B35] font-medium">
-                    See More...
-                  </Option>
-                )}
-              </Select>
-            </div>
+                  }}
+                  variant="borderless"
+                  style={{ width: 150 }}
+                  suffixIcon={null}
+                  loading={loading}
+                  placeholder="Select tenant"
+                >
+                  {tenants.map((tenant) => (
+                    <Option key={tenant.id} value={tenant.id}>
+                      {tenant.name}
+                    </Option>
+                  ))}
+                  {hasMore && (
+                    <Option key="see-more" value="see-more" className="text-[#FF6B35] font-medium">
+                      See More...
+                    </Option>
+                  )}
+                </Select>
+              </div>
+            ) : (
+              /* Read-only tenant display - on other pages */
+              selectedRestaurant && (
+                <div className="flex items-center gap-2 px-3 py-1.5 border border-gray-200 rounded-lg bg-gray-50 w-fit">
+                  <EnvironmentOutlined className="text-[#FF6B35]" />
+                  <span className="text-gray-700 font-medium">{selectedRestaurant.name}</span>
+                </div>
+              )
+            )}
             <Link
               href="/#menu"
               className="block py-2 text-gray-700 hover:text-[#FF6B35] font-medium"

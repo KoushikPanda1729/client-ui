@@ -2,64 +2,26 @@
 
 import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
-import { Tag, Steps, Badge, Dropdown, Avatar, Select } from "antd";
-import type { MenuProps } from "antd";
-import {
-  ArrowLeftOutlined,
-  ShoppingCartOutlined,
-  PhoneOutlined,
-  MenuOutlined,
-  UserOutlined,
-  LogoutOutlined,
-  CloseOutlined,
-  EnvironmentOutlined,
-} from "@ant-design/icons";
-import Link from "next/link";
+import { Tag, Steps, message, Modal } from "antd";
+import { ArrowLeftOutlined, ExclamationCircleOutlined } from "@ant-design/icons";
 import Image from "next/image";
 import { useAuth } from "@/hooks/useAuth";
-import { useAppDispatch } from "@/store/hooks";
-import { logout } from "@/store/slices/authSlice";
-import type { Order } from "@/types/cart.types";
-
-const { Option } = Select;
+import { billingService } from "@/services/billing.service";
+import type { Order, RefundDetails } from "@/types/billing.types";
+import Navbar from "@/components/layout/Navbar";
+import { useSelector } from "react-redux";
+import { RootState } from "@/store";
 
 export default function OrderDetailsPage({ params }: { params: Promise<{ orderId: string }> }) {
   const resolvedParams = use(params);
   const router = useRouter();
-  const { isAuthenticated, loading, user } = useAuth();
-  const dispatch = useAppDispatch();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  const handleLogout = async () => {
-    await dispatch(logout());
-    router.push("/");
-  };
-
-  const userMenuItems: MenuProps["items"] = [
-    {
-      key: "profile",
-      label: (
-        <div className="px-2 py-1">
-          <p className="font-semibold text-gray-900">
-            {user?.firstName} {user?.lastName}
-          </p>
-          <p className="text-sm text-gray-600">{user?.email}</p>
-          <p className="text-xs text-gray-500 mt-1">Role: {user?.role}</p>
-        </div>
-      ),
-      disabled: true,
-    },
-    {
-      type: "divider",
-    },
-    {
-      key: "logout",
-      label: "Logout",
-      icon: <LogoutOutlined />,
-      onClick: handleLogout,
-      danger: true,
-    },
-  ];
+  const { isAuthenticated, loading } = useAuth();
+  const [order, setOrder] = useState<Order | null>(null);
+  const [orderLoading, setOrderLoading] = useState(true);
+  const [refunds, setRefunds] = useState<RefundDetails[]>([]);
+  const [refundsLoading, setRefundsLoading] = useState(true);
+  const [cancelling, setCancelling] = useState(false);
+  const cartItemsCount = useSelector((state: RootState) => state.cart.items.length);
 
   useEffect(() => {
     if (!loading && !isAuthenticated) {
@@ -67,304 +29,239 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ orderId
     }
   }, [isAuthenticated, loading, router]);
 
-  // Mock order data - in real app, fetch based on resolvedParams.orderId
-  const order: Order = {
-    id: resolvedParams.orderId,
-    items: [
-      {
-        id: 1,
-        productId: 1,
-        name: "Pepperoni Pizza",
-        image: "/image/peperoni.png",
-        size: "S",
-        price: 299,
-        quantity: 2,
-      },
-      {
-        id: 2,
-        productId: 2,
-        name: "Margherita Pizza",
-        image: "/image/peperoni.png",
-        size: "M",
-        price: 399,
-        quantity: 1,
-      },
-      {
-        id: 3,
-        productId: 3,
-        name: "Veggie Supreme",
-        image: "/image/peperoni.png",
-        size: "L",
-        price: 499,
-        quantity: 1,
-      },
-    ],
-    subtotal: 1496,
-    taxes: 149.6,
-    deliveryCharges: 0,
-    total: 1645.6,
-    address: {
-      id: 1,
-      name: "Rakesh K",
-      street: "Main street, Big, no. 3",
-      building: "Ground floor",
-      apartment: "apt. 4",
-      isDefault: true,
-    },
-    restaurant: {
-      name: "Pizzarea",
-      location: "Shopping mall, 2nd floor",
-    },
-    paymentType: "COD",
-    status: "Out for delivery",
-    createdAt: "23.11.2022",
+  useEffect(() => {
+    const fetchOrder = async () => {
+      if (!isAuthenticated || loading || !resolvedParams.orderId) return;
+
+      try {
+        const response = await billingService.getOrderDetail(resolvedParams.orderId);
+        setOrder(response.order);
+      } catch (error) {
+        console.error("Error fetching order:", error);
+        message.error("Failed to load order details");
+      } finally {
+        setOrderLoading(false);
+      }
+    };
+
+    fetchOrder();
+  }, [isAuthenticated, loading, resolvedParams.orderId]);
+
+  useEffect(() => {
+    const fetchRefunds = async () => {
+      if (!isAuthenticated || loading || !resolvedParams.orderId) return;
+
+      try {
+        const response = await billingService.getRefunds(resolvedParams.orderId);
+        setRefunds(response.refunds);
+      } catch (error) {
+        console.error("Error fetching refunds:", error);
+        // Don't show error message as refunds might not exist for all orders
+      } finally {
+        setRefundsLoading(false);
+      }
+    };
+
+    fetchRefunds();
+  }, [isAuthenticated, loading, resolvedParams.orderId]);
+
+  const getStatusColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case "pending":
+        return "orange";
+      case "confirmed":
+        return "blue";
+      case "preparing":
+        return "cyan";
+      case "out for delivery":
+        return "purple";
+      case "delivered":
+        return "green";
+      case "cancelled":
+        return "red";
+      default:
+        return "default";
+    }
   };
 
-  const getStatusColor = (status: Order["status"]) => {
-    if (status === "Preparing") return "orange";
-    if (status === "Delivered") return "green";
-    if (status === "Cancelled") return "red";
-    if (status === "Out for delivery") return "blue";
-    return "default";
+  const getPaymentStatusColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case "paid":
+        return "green";
+      case "pending":
+        return "orange";
+      case "failed":
+        return "red";
+      default:
+        return "default";
+    }
   };
 
-  const getStatusStep = (status: Order["status"]) => {
-    if (status === "Cancelled") return 0;
-    if (status === "Preparing") return 0;
-    if (status === "Out for delivery") return 1;
-    if (status === "Delivered") return 2;
-    return 0;
+  const getRefundStatusColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case "succeeded":
+        return "green";
+      case "pending":
+        return "orange";
+      case "failed":
+        return "red";
+      default:
+        return "default";
+    }
   };
 
-  // Show loading or nothing while checking authentication
+  const getStatusStep = (status: string) => {
+    switch (status.toLowerCase()) {
+      case "pending":
+        return 0;
+      case "confirmed":
+        return 1;
+      case "preparing":
+        return 2;
+      case "out for delivery":
+        return 3;
+      case "delivered":
+        return 4;
+      default:
+        return 0;
+    }
+  };
+
+  const handleCancelOrder = async () => {
+    if (!order) return;
+
+    Modal.confirm({
+      title: "Cancel Order",
+      icon: <ExclamationCircleOutlined />,
+      content: "Are you sure you want to cancel this order? This action cannot be undone.",
+      okText: "Yes, Cancel Order",
+      cancelText: "No, Keep Order",
+      okButtonProps: {
+        danger: true,
+      },
+      onOk: async () => {
+        setCancelling(true);
+        try {
+          const response = await billingService.cancelOrder(resolvedParams.orderId, {
+            status: "cancelled",
+          });
+          setOrder(response.order);
+          message.success("Order cancelled successfully");
+        } catch (error) {
+          console.error("Error cancelling order:", error);
+          message.error("Failed to cancel order. Please try again.");
+        } finally {
+          setCancelling(false);
+        }
+      },
+    });
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
   if (loading || !isAuthenticated) {
     return null;
   }
 
+  if (orderLoading) {
+    return (
+      <div className="min-h-screen bg-[#F5F1ED]">
+        <Navbar cartCount={cartItemsCount} />
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF6B35] mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading order details...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!order) {
+    return (
+      <div className="min-h-screen bg-[#F5F1ED]">
+        <Navbar cartCount={cartItemsCount} />
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="bg-white p-8 rounded-lg shadow-md text-center max-w-md">
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">Order Not Found</h1>
+            <p className="text-gray-600 mb-6">
+              The order you&apos;re looking for doesn&apos;t exist.
+            </p>
+            <button
+              onClick={() => router.push("/orders")}
+              className="bg-[#FF6B35] hover:bg-[#FF5520] text-white px-6 py-3 rounded-lg font-medium transition-colors"
+            >
+              Back to Orders
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#F5F1ED]">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            {/* Logo */}
-            <div className="flex items-center gap-2">
-              <Link href="/" className="flex items-center gap-2">
-                <div className="w-6 h-6 bg-[#FF6B35] rounded-full flex items-center justify-center">
-                  <div className="w-3 h-3 bg-white rounded-full"></div>
-                </div>
-                <span className="text-xl sm:text-2xl font-bold text-gray-900">pizza</span>
-              </Link>
-            </div>
+      <Navbar cartCount={cartItemsCount} />
 
-            {/* Desktop Navigation */}
-            <nav className="hidden lg:flex items-center gap-6 xl:gap-8">
-              <div className="flex items-center gap-2 px-3 py-1.5 border border-gray-300 rounded-lg hover:border-[#FF6B35] transition-colors">
-                <EnvironmentOutlined className="text-[#FF6B35]" />
-                <Select
-                  defaultValue="mumbai"
-                  variant="borderless"
-                  style={{ width: 100 }}
-                  suffixIcon={null}
-                >
-                  <Option value="mumbai">Mumbai</Option>
-                  <Option value="delhi">Delhi</Option>
-                  <Option value="bangalore">Bangalore</Option>
-                </Select>
-              </div>
-              <Link href="/#menu" className="text-gray-700 hover:text-[#FF6B35] font-medium">
-                Menu
-              </Link>
-              <button
-                onClick={() => router.push("/orders")}
-                className="text-gray-700 hover:text-[#FF6B35] font-medium"
-              >
-                Orders
-              </button>
-            </nav>
-
-            {/* Cart, Phone, User Avatar and Mobile Menu */}
-            <div className="flex items-center gap-3 sm:gap-4">
-              <Badge count={0} showZero={false} color="#FF6B35">
-                <ShoppingCartOutlined
-                  onClick={() => router.push("/cart")}
-                  className="text-xl sm:text-2xl text-gray-700 cursor-pointer"
-                />
-              </Badge>
-              <a
-                href="tel:+919800098998"
-                className="hidden sm:flex items-center gap-2 text-gray-700 hover:text-[#FF6B35] transition-colors"
-              >
-                <PhoneOutlined />
-                <span className="hidden md:inline text-sm lg:text-base">+91 9800 098 998</span>
-              </a>
-              {isAuthenticated ? (
-                <Dropdown
-                  menu={{ items: userMenuItems }}
-                  placement="bottomRight"
-                  trigger={["click"]}
-                >
-                  <div className="hidden lg:flex items-center gap-2 cursor-pointer hover:bg-gray-50 px-3 py-2 rounded-lg transition-colors">
-                    <Avatar
-                      style={{ backgroundColor: "#FF6B35" }}
-                      icon={<UserOutlined />}
-                      size="default"
-                    />
-                    <div className="hidden xl:block text-left">
-                      <p className="text-sm font-semibold text-gray-900">
-                        {user?.firstName} {user?.lastName}
-                      </p>
-                      <p className="text-xs text-gray-600">{user?.role}</p>
-                    </div>
-                  </div>
-                </Dropdown>
-              ) : (
-                <button
-                  onClick={() => router.push("/login")}
-                  className="hidden lg:block text-gray-700 hover:text-gray-900 font-medium"
-                >
-                  Login
-                </button>
-              )}
-              <button
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="lg:hidden text-gray-700 p-2"
-              >
-                {mobileMenuOpen ? (
-                  <CloseOutlined className="text-xl" />
-                ) : (
-                  <MenuOutlined className="text-xl" />
-                )}
-              </button>
-            </div>
-          </div>
-
-          {/* Mobile Menu */}
-          {mobileMenuOpen && (
-            <div className="lg:hidden border-t border-gray-200 py-4 space-y-3">
-              <div className="flex items-center gap-2 px-3 py-1.5 border border-gray-300 rounded-lg w-fit">
-                <EnvironmentOutlined className="text-[#FF6B35]" />
-                <Select
-                  defaultValue="mumbai"
-                  variant="borderless"
-                  style={{ width: 100 }}
-                  suffixIcon={null}
-                >
-                  <Option value="mumbai">Mumbai</Option>
-                  <Option value="delhi">Delhi</Option>
-                  <Option value="bangalore">Bangalore</Option>
-                </Select>
-              </div>
-              <Link
-                href="/#menu"
-                className="block py-2 text-gray-700 hover:text-[#FF6B35] font-medium"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Menu
-              </Link>
-              <button
-                onClick={() => {
-                  router.push("/orders");
-                  setMobileMenuOpen(false);
-                }}
-                className="block py-2 text-gray-700 hover:text-[#FF6B35] font-medium w-full text-left"
-              >
-                Orders
-              </button>
-              {isAuthenticated ? (
-                <>
-                  <div className="py-2 px-3 bg-gray-50 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <Avatar
-                        style={{ backgroundColor: "#FF6B35" }}
-                        icon={<UserOutlined />}
-                        size="large"
-                      />
-                      <div>
-                        <p className="font-semibold text-gray-900">
-                          {user?.firstName} {user?.lastName}
-                        </p>
-                        <p className="text-sm text-gray-600">{user?.email}</p>
-                        <p className="text-xs text-gray-500">Role: {user?.role}</p>
-                      </div>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => {
-                      handleLogout();
-                      setMobileMenuOpen(false);
-                    }}
-                    className="flex items-center gap-2 py-2 text-red-600 hover:text-red-700 font-medium w-full text-left"
-                  >
-                    <LogoutOutlined />
-                    Logout
-                  </button>
-                </>
-              ) : (
-                <button
-                  onClick={() => {
-                    router.push("/login");
-                    setMobileMenuOpen(false);
-                  }}
-                  className="block py-2 text-gray-700 hover:text-[#FF6B35] font-medium w-full text-left"
-                >
-                  Login
-                </button>
-              )}
-              <a
-                href="tel:+919800098998"
-                className="flex items-center gap-2 py-2 text-gray-700 hover:text-[#FF6B35] font-medium sm:hidden"
-              >
-                <PhoneOutlined />
-                <span>+91 9800 098 998</span>
-              </a>
-            </div>
-          )}
-        </div>
-      </header>
-
-      {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Back Button */}
+        <button
+          onClick={() => router.push("/orders")}
+          className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6"
+        >
+          <ArrowLeftOutlined /> Back to Orders
+        </button>
+
         {/* Order Header */}
         <div className="mb-8">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
             <h1 className="text-3xl font-bold text-gray-900">Order Details</h1>
-            <Tag color={getStatusColor(order.status)} className="text-base px-4 py-1 w-fit">
-              {order.status}
-            </Tag>
+            <div className="flex items-center gap-2">
+              <Tag color={getStatusColor(order.status)} className="text-base px-4 py-1">
+                {order.status}
+              </Tag>
+              <Tag
+                color={getPaymentStatusColor(order.paymentStatus)}
+                className="text-base px-4 py-1"
+              >
+                {order.paymentStatus}
+              </Tag>
+            </div>
           </div>
           <div className="flex flex-col sm:flex-row gap-4 text-gray-600">
             <p>
-              <span className="font-semibold">Order ID:</span> {order.id}
+              <span className="font-semibold">Order ID:</span> #{order._id.slice(-8)}
             </p>
             <p>
-              <span className="font-semibold">Order Date:</span> {order.createdAt}
+              <span className="font-semibold">Order Date:</span> {formatDate(order.createdAt)}
             </p>
             <p>
-              <span className="font-semibold">Payment:</span> {order.paymentType}
+              <span className="font-semibold">Payment:</span> {order.paymentMode.toUpperCase()}
             </p>
           </div>
         </div>
 
         {/* Order Status Timeline */}
-        {order.status !== "Cancelled" && (
+        {order.status.toLowerCase() !== "cancelled" && (
           <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-6">Order Status</h2>
             <Steps
               current={getStatusStep(order.status)}
               items={[
-                {
-                  title: "Preparing",
-                  description: "Your order is being prepared",
-                },
-                {
-                  title: "Out for delivery",
-                  description: "Your order is on the way",
-                },
-                {
-                  title: "Delivered",
-                  description: "Order delivered successfully",
-                },
+                { title: "Pending", content: "Order placed" },
+                { title: "Confirmed", content: "Order confirmed" },
+                { title: "Preparing", content: "Being prepared" },
+                { title: "Out for delivery", content: "On the way" },
+                { title: "Delivered", content: "Delivered" },
               ]}
             />
           </div>
@@ -377,35 +274,43 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ orderId
             <div className="bg-white rounded-lg shadow-sm p-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-6">Order Items</h2>
               <div className="space-y-4">
-                {order.items.map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex items-center gap-4 pb-4 border-b last:border-b-0"
-                  >
+                {order.items.map((item, index) => (
+                  <div key={index} className="flex items-start gap-4 pb-4 border-b last:border-b-0">
                     {/* Product Image */}
-                    <div className="w-20 h-20 bg-gray-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <div className="w-20 h-20 bg-gray-50 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
                       <Image
                         src={item.image}
                         alt={item.name}
                         width={70}
                         height={70}
-                        className="object-contain mix-blend-multiply"
+                        className="object-cover"
                       />
                     </div>
 
                     {/* Product Details */}
                     <div className="flex-1">
                       <h3 className="font-semibold text-gray-900">{item.name}</h3>
-                      <p className="text-sm text-gray-600">
-                        Size: {item.size === "S" ? "Small" : item.size === "M" ? "Medium" : "Large"}
-                      </p>
-                      <p className="text-sm text-gray-600">Quantity: {item.quantity}</p>
+                      <p className="text-sm text-gray-600">Quantity: {item.qty}</p>
+                      {item.toppings && item.toppings.length > 0 && (
+                        <div className="mt-2">
+                          <p className="text-xs text-gray-500">Toppings:</p>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {item.toppings.map((topping, tIndex) => (
+                              <span
+                                key={tIndex}
+                                className="text-xs bg-gray-100 px-2 py-0.5 rounded"
+                              >
+                                {topping.name} (+₹{topping.price})
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* Price */}
                     <div className="text-right">
-                      <p className="font-semibold text-gray-900">₹{item.price}</p>
-                      <p className="text-sm text-gray-600">₹{item.price * item.quantity} total</p>
+                      <p className="font-semibold text-gray-900">₹{item.totalPrice}</p>
                     </div>
                   </div>
                 ))}
@@ -415,49 +320,95 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ orderId
             {/* Delivery Address */}
             <div className="bg-white rounded-lg shadow-sm p-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">Delivery Address</h2>
-              <div className="text-gray-700">
-                <p className="font-semibold text-gray-900">{order.address.name}</p>
-                <p>{order.address.street}</p>
-                <p>
-                  {order.address.building}, {order.address.apartment}
-                </p>
-              </div>
+              <div className="text-gray-700 whitespace-pre-line">{order.address}</div>
             </div>
 
-            {/* Restaurant Info */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Restaurant</h2>
-              <div className="text-gray-700">
-                <p className="font-semibold text-gray-900">{order.restaurant.name}</p>
-                <p>{order.restaurant.location}</p>
+            {/* Refund Details */}
+            {!refundsLoading && refunds.length > 0 && (
+              <div className="bg-white rounded-lg shadow-sm p-6">
+                <h2 className="text-xl font-semibold text-gray-900 mb-4">Refund Details</h2>
+                <div className="space-y-4">
+                  {refunds.map((refund, index) => (
+                    <div
+                      key={refund.id}
+                      className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-4 border-b last:border-b-0"
+                    >
+                      <div className="space-y-1">
+                        <p className="font-medium text-gray-900">Refund #{index + 1}</p>
+                        <p className="text-sm text-gray-600">
+                          <span className="font-semibold">Payment ID:</span> {refund.paymentId}
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          <span className="font-semibold">Refund ID:</span> {refund.id}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="text-right">
+                          <p className="font-semibold text-gray-900">
+                            ₹{(refund.amount / 100).toFixed(2)}
+                          </p>
+                        </div>
+                        <Tag
+                          color={getRefundStatusColor(refund.status)}
+                          className="text-sm px-3 py-1"
+                        >
+                          {refund.status}
+                        </Tag>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Right Column - Payment Summary */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg shadow-sm p-6 sticky top-6">
+            <div className="bg-white rounded-lg shadow-sm p-6 sticky top-24">
               <h2 className="text-xl font-semibold text-gray-900 mb-6">Payment Summary</h2>
 
               <div className="space-y-4 mb-6">
                 <div className="flex justify-between text-gray-700">
                   <span>Subtotal</span>
-                  <span className="font-semibold">₹{order.subtotal}</span>
+                  <span className="font-semibold">₹{order.subTotal}</span>
                 </div>
-                <div className="flex justify-between text-gray-700">
-                  <span>Taxes</span>
-                  <span className="font-semibold">₹{order.taxes}</span>
-                </div>
+
+                {order.taxes && order.taxes.length > 0 && (
+                  <>
+                    {order.taxes.map((tax, index) => (
+                      <div key={index} className="flex justify-between text-gray-700">
+                        <span>
+                          {tax.name} ({tax.rate}%)
+                        </span>
+                        <span className="font-semibold">₹{tax.amount.toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </>
+                )}
+
                 <div className="flex justify-between text-gray-700">
                   <span>Delivery charges</span>
-                  <span className="font-semibold">₹{order.deliveryCharges}</span>
+                  <span className="font-semibold">
+                    {order.deliveryCharge === 0 ? (
+                      <span className="text-green-600">FREE</span>
+                    ) : (
+                      `₹${order.deliveryCharge}`
+                    )}
+                  </span>
                 </div>
+
+                {order.discount > 0 && (
+                  <div className="flex justify-between text-green-600">
+                    <span>Discount {order.couponCode && `(${order.couponCode})`}</span>
+                    <span className="font-semibold">-₹{order.discount}</span>
+                  </div>
+                )}
               </div>
 
               <div className="border-t pt-4 mb-6">
                 <div className="flex justify-between text-lg font-bold text-gray-900">
-                  <span>Order total</span>
-                  <span>₹{order.total}</span>
+                  <span>Order Total</span>
+                  <span>₹{order.total.toFixed(2)}</span>
                 </div>
               </div>
 
@@ -468,7 +419,7 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ orderId
                 >
                   Back to Orders
                 </button>
-                {order.status === "Delivered" && (
+                {order.status.toLowerCase() === "delivered" && (
                   <button
                     onClick={() => router.push("/")}
                     className="w-full bg-white hover:bg-gray-50 border-2 border-gray-300 hover:border-[#FF6B35] text-gray-900 h-12 text-base font-semibold rounded-lg transition-colors"
@@ -476,6 +427,16 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ orderId
                     Order Again
                   </button>
                 )}
+                {order.status.toLowerCase() !== "cancelled" &&
+                  order.status.toLowerCase() !== "delivered" && (
+                    <button
+                      onClick={handleCancelOrder}
+                      disabled={cancelling}
+                      className="w-full bg-white hover:bg-red-50 border-2 border-red-300 hover:border-red-500 text-red-600 hover:text-red-700 h-12 text-base font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {cancelling ? "Cancelling..." : "Cancel Order"}
+                    </button>
+                  )}
               </div>
             </div>
           </div>

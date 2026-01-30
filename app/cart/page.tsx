@@ -1,61 +1,26 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { PlusOutlined, MinusOutlined, DeleteOutlined, ShoppingOutlined } from "@ant-design/icons";
 import { message } from "antd";
 import Image from "next/image";
-import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
 import { RootState } from "@/store";
+import { removeFromCart, updateQuantity } from "@/store/slices/cartSlice";
 import Navbar from "@/components/layout/Navbar";
-import type { CartItem } from "@/types/cart.types";
 import { billingService } from "@/services/billing.service";
 
 export default function CartPage() {
   const router = useRouter();
+  const dispatch = useDispatch();
   const { isAuthenticated, loading } = useAuth();
   const user = useSelector((state: RootState) => state.auth.user);
+  const cartItems = useSelector((state: RootState) => state.cart.items);
+  const subtotal = useSelector((state: RootState) => state.cart.subtotal);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
-  const [cartItems, setCartItems] = useState<CartItem[]>([
-    {
-      id: 1,
-      productId: 1,
-      name: "Pepperoni Pizza",
-      image: "/image/peperoni.png",
-      size: "S",
-      price: 299,
-      quantity: 1,
-    },
-    {
-      id: 2,
-      productId: 1,
-      name: "Pepperoni Pizza",
-      image: "/image/peperoni.png",
-      size: "S",
-      price: 299,
-      quantity: 1,
-    },
-    {
-      id: 3,
-      productId: 1,
-      name: "Pepperoni Pizza",
-      image: "/image/peperoni.png",
-      size: "S",
-      price: 299,
-      quantity: 1,
-    },
-    {
-      id: 4,
-      productId: 1,
-      name: "Pepperoni Pizza",
-      image: "/image/peperoni.png",
-      size: "S",
-      price: 299,
-      quantity: 1,
-    },
-  ]);
 
   useEffect(() => {
     if (!loading && !isAuthenticated) {
@@ -65,13 +30,11 @@ export default function CartPage() {
 
   const handleQuantityChange = (itemId: number, newQuantity: number) => {
     if (newQuantity < 1) return;
-    setCartItems((items) =>
-      items.map((item) => (item.id === itemId ? { ...item, quantity: newQuantity } : item))
-    );
+    dispatch(updateQuantity({ id: itemId, quantity: newQuantity }));
   };
 
   const handleRemoveItem = (itemId: number) => {
-    setCartItems((items) => items.filter((item) => item.id !== itemId));
+    dispatch(removeFromCart(itemId));
   };
 
   const handleProceedToCheckout = async () => {
@@ -98,8 +61,6 @@ export default function CartPage() {
       setCheckoutLoading(false);
     }
   };
-
-  const subtotal = cartItems.reduce((total, item) => total + item.price * item.quantity, 0);
 
   // Show loading or nothing while checking authentication
   if (loading || !isAuthenticated) {

@@ -1,6 +1,6 @@
 export interface CartItem {
   id: number;
-  productId: number;
+  productId: string;
   name: string;
   image: string;
   size: "S" | "M" | "L";
@@ -8,9 +8,10 @@ export interface CartItem {
   price: number;
   quantity: number;
   toppings?: {
-    id: number;
+    id: string;
     name: string;
     price: number;
+    image: string;
   }[];
 }
 

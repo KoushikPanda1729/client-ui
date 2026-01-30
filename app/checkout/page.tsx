@@ -5,18 +5,22 @@ import { useRouter } from "next/navigation";
 import { Input, message, Modal, Checkbox } from "antd";
 import { CheckCircleFilled, PlusOutlined, EditOutlined, DeleteOutlined } from "@ant-design/icons";
 import { useAuth } from "@/hooks/useAuth";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
 import { RootState } from "@/store";
+import { clearCart } from "@/store/slices/cartSlice";
 import Navbar from "@/components/layout/Navbar";
 import { billingService } from "@/services/billing.service";
 import { couponService } from "@/services/coupon.service";
-import type { Customer } from "@/types/billing.types";
+import type { Customer, TaxItem } from "@/types/billing.types";
 import type { Coupon, VerifiedCoupon } from "@/types/coupon.types";
 
 export default function CheckoutPage() {
   const router = useRouter();
   const { isAuthenticated, loading } = useAuth();
   const user = useSelector((state: RootState) => state.auth.user);
+  const dispatch = useDispatch();
+  const cartItems = useSelector((state: RootState) => state.cart.items);
+  const cartSubtotal = useSelector((state: RootState) => state.cart.subtotal);
   const selectedRestaurant = useSelector((state: RootState) => state.cart.selectedRestaurant);
   const [selectedAddressId, setSelectedAddressId] = useState<string>("");
   const [paymentType, setPaymentType] = useState<"COD" | "Online">("COD");
@@ -36,6 +40,10 @@ export default function CheckoutPage() {
   const [couponsLoading, setCouponsLoading] = useState(false);
   const [verifiedCoupon, setVerifiedCoupon] = useState<VerifiedCoupon | null>(null);
   const [verifyingCoupon, setVerifyingCoupon] = useState(false);
+  const [activeTaxes, setActiveTaxes] = useState<TaxItem[]>([]);
+  const [deliveryCharge, setDeliveryCharge] = useState<number>(0);
+  const [isFreeDelivery, setIsFreeDelivery] = useState(false);
+  const [chargesLoading, setChargesLoading] = useState(false);
 
   useEffect(() => {
     if (!loading && !isAuthenticated) {
@@ -66,6 +74,36 @@ export default function CheckoutPage() {
 
     fetchCustomerData();
   }, [isAuthenticated, loading, user]);
+
+  // Fetch tax config and delivery charges
+  useEffect(() => {
+    const fetchCharges = async () => {
+      if (!selectedRestaurant) return;
+
+      setChargesLoading(true);
+      try {
+        const tenantId = selectedRestaurant.id.toString();
+
+        const [taxResponse, deliveryResponse] = await Promise.all([
+          billingService.getTaxConfig(tenantId),
+          billingService.calculateDeliveryCharge(tenantId, cartSubtotal),
+        ]);
+
+        // Only use active taxes
+        const active = taxResponse.taxConfig.taxes.filter((t) => t.isActive);
+        setActiveTaxes(active);
+
+        setDeliveryCharge(deliveryResponse.deliveryCharge);
+        setIsFreeDelivery(deliveryResponse.isFreeDelivery);
+      } catch (error) {
+        console.error("Error fetching charges:", error);
+      } finally {
+        setChargesLoading(false);
+      }
+    };
+
+    fetchCharges();
+  }, [selectedRestaurant, cartSubtotal]);
 
   const handleAddAddress = () => {
     setEditingAddressId(null);
@@ -177,33 +215,103 @@ export default function CheckoutPage() {
     }
   };
 
-  const subtotal = 4000;
-  const taxes = 200;
-  const deliveryCharges = 0;
-  const discount = verifiedCoupon?.discount || 0;
-  const total = subtotal + taxes + deliveryCharges - discount;
+  const subtotal = cartSubtotal;
+  const discountPercent = verifiedCoupon?.discount || 0;
+  const discountAmount = Math.round(((subtotal * discountPercent) / 100) * 100) / 100;
+  const taxableAmount = subtotal - discountAmount;
+  const totalTaxRate = activeTaxes.reduce((sum, t) => sum + t.rate, 0);
+  const taxes = Math.round(taxableAmount * (totalTaxRate / 100) * 100) / 100;
+  const total = Math.round((taxableAmount + taxes + deliveryCharge) * 100) / 100;
 
   const handleCheckout = async () => {
+    if (!customer) {
+      message.error("Customer information not available");
+      return;
+    }
+
+    if (!selectedAddressId) {
+      message.error("Please select a delivery address");
+      return;
+    }
+
+    if (cartItems.length === 0) {
+      message.error("Your cart is empty");
+      return;
+    }
+
+    if (!selectedRestaurant) {
+      message.error("Please select a restaurant");
+      return;
+    }
+
+    const selectedAddress = customer.address.find((a) => a._id === selectedAddressId);
+    if (!selectedAddress) {
+      message.error("Selected address not found");
+      return;
+    }
+
     setCheckoutLoading(true);
 
     try {
-      // Customer already exists from page load, use the stored customer data
-      if (!customer) {
-        message.error("Customer information not available");
+      // Map cart items to order items format
+      const orderItems = cartItems.map((item) => ({
+        _id: item.productId.toString(),
+        name: item.name,
+        image: item.image,
+        qty: item.quantity,
+        priceConfiguration: {
+          small: item.size === "S" ? "small" : item.size === "M" ? "medium" : "large",
+        },
+        toppings: (item.toppings || []).map((t) => ({
+          _id: t.id.toString(),
+          name: t.name,
+          image: t.image,
+          price: t.price,
+        })),
+        totalPrice: item.price * item.quantity,
+      }));
+
+      const paymentMode = paymentType === "COD" ? "cash" : "card";
+
+      const orderPayload: import("@/types/billing.types").CreateOrderPayload = {
+        address: selectedAddress.text,
+        items: orderItems,
+        total,
+        paymentMode,
+        tenantId: selectedRestaurant.id.toString(),
+        ...(verifiedCoupon ? { couponCode: couponCode, discount: discountAmount } : {}),
+        taxTotal: taxes,
+        deliveryCharge: deliveryCharge,
+      };
+
+      const orderResponse = await billingService.createOrder(orderPayload, user!.id.toString());
+
+      // If payment type is Online, initiate payment and redirect to Stripe
+      if (paymentType === "Online") {
+        const paymentIdempotencyKey = `payment-${orderResponse.order._id}-${crypto.randomUUID()}`;
+        const paymentResponse = await billingService.initiatePayment(
+          {
+            orderId: orderResponse.order._id,
+            currency: "INR",
+          },
+          paymentIdempotencyKey
+        );
+
+        // Redirect to Stripe checkout
+        window.location.href = paymentResponse.payment.paymentUrl;
         return;
       }
 
-      message.success("Processing checkout...");
-
-      // Step 2: TODO - Create order with customer info
-      // For now, just redirect to orders page
+      // For COD, show success and redirect to orders
+      message.success("Order placed successfully!");
+      dispatch(clearCart());
       router.push("/orders");
     } catch (error: unknown) {
       console.error("Checkout error:", error);
       if (error instanceof Error) {
-        message.error(error.message || "Failed to process checkout");
+        message.error(error.message || "Failed to place order");
       } else {
-        message.error("Failed to process checkout");
+        message.error("Failed to place order");
       }
     } finally {
       setCheckoutLoading(false);
@@ -381,17 +489,25 @@ export default function CheckoutPage() {
                   <span className="font-semibold">₹{subtotal}</span>
                 </div>
                 <div className="flex justify-between text-gray-700">
-                  <span>Taxes</span>
-                  <span className="font-semibold">₹{taxes}</span>
+                  <span>
+                    Taxes
+                    {activeTaxes.length > 0 &&
+                      ` (${activeTaxes.map((t) => `${t.name} ${t.rate}%`).join(" + ")})`}
+                  </span>
+                  <span className="font-semibold">{chargesLoading ? "..." : `₹${taxes}`}</span>
                 </div>
                 <div className="flex justify-between text-gray-700">
                   <span>Delivery charges</span>
-                  <span className="font-semibold">₹{deliveryCharges}</span>
+                  <span className={`font-semibold ${isFreeDelivery ? "text-green-600" : ""}`}>
+                    {chargesLoading ? "..." : isFreeDelivery ? "FREE" : `₹${deliveryCharge}`}
+                  </span>
                 </div>
                 {verifiedCoupon && (
                   <div className="flex justify-between text-green-600">
-                    <span>Discount ({verifiedCoupon.code})</span>
-                    <span className="font-semibold">-₹{discount}</span>
+                    <span>
+                      Discount ({verifiedCoupon.code} - {discountPercent}%)
+                    </span>
+                    <span className="font-semibold">-₹{discountAmount}</span>
                   </div>
                 )}
               </div>
@@ -443,7 +559,7 @@ export default function CheckoutPage() {
                     <div>
                       <p className="font-semibold text-green-800">{verifiedCoupon.title}</p>
                       <p className="text-sm text-green-600">
-                        ₹{verifiedCoupon.discount} discount applied
+                        {discountPercent}% off (₹{discountAmount} discount applied)
                       </p>
                     </div>
                     <button

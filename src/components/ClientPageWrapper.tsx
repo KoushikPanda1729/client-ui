@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { useSelector } from "react-redux";
+import { RootState } from "@/store";
 import Navbar from "./layout/Navbar";
 import ProductCatalogSection from "./home/ProductCatalogSection";
 import HeroSection from "./home/HeroSection";
@@ -17,7 +19,7 @@ export default function ClientPageWrapper({
   initialCategories,
   initialToppings,
 }: ClientPageWrapperProps) {
-  const [cartCount] = useState(0);
+  const cartItems = useSelector((state: RootState) => state.cart.items);
   const [selectedTenantId, setSelectedTenantId] = useState<string | undefined>();
 
   const handleTenantChange = useCallback((tenantId: string) => {
@@ -26,8 +28,12 @@ export default function ClientPageWrapper({
 
   return (
     <>
-      {/* Navbar with tenant change handler */}
-      <Navbar cartCount={cartCount} onTenantChange={handleTenantChange} />
+      {/* Navbar with tenant change handler - allowTenantChange only on home page */}
+      <Navbar
+        cartCount={cartItems.length}
+        onTenantChange={handleTenantChange}
+        allowTenantChange={true}
+      />
 
       {/* Hero Section */}
       <HeroSection />

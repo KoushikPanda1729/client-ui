@@ -5,6 +5,9 @@ import { SearchOutlined, CloseOutlined } from "@ant-design/icons";
 import { Spin } from "antd";
 import Image from "next/image";
 import { lazy, Suspense, useEffect, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { RootState } from "@/store";
+import { addToCart } from "@/store/slices/cartSlice";
 import FloatingCartButton from "@/components/layout/FloatingCartButton";
 
 const ProductGrid = lazy(() => import("@/components/home/ProductGrid"));
@@ -24,7 +27,8 @@ export default function ProductCatalogSection({
   initialToppings,
   selectedTenantId,
 }: ProductCatalogSectionProps) {
-  const [cartCount, setCartCount] = useState(0);
+  const dispatch = useDispatch();
+  const cartItems = useSelector((state: RootState) => state.cart.items);
   const [selectedProduct, setSelectedProduct] = useState<APIProduct | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalSelectedSize, setModalSelectedSize] = useState<string>("medium");
@@ -97,7 +101,37 @@ export default function ProductCatalogSection({
   };
 
   const handleAddToCartFromModal = () => {
-    setCartCount((prev) => prev + 1);
+    if (!selectedProduct) return;
+
+    const basePrice = getProductPrice(selectedProduct, modalSelectedSize);
+    const toppingsPrice = selectedToppings.reduce((total, toppingId) => {
+      const topping = apiToppings.find((t) => t._id === toppingId);
+      return total + (topping?.price || 0);
+    }, 0);
+    const totalPrice = basePrice + toppingsPrice;
+
+    const size = modalSelectedSize === "small" ? "S" : modalSelectedSize === "medium" ? "M" : "L";
+
+    dispatch(
+      addToCart({
+        productId: selectedProduct._id,
+        name: selectedProduct.name,
+        image: selectedProduct.image,
+        size: size as "S" | "M" | "L",
+        crust: selectedCrust,
+        price: totalPrice,
+        quantity: 1,
+        toppings: selectedToppings.map((toppingId) => {
+          const topping = apiToppings.find((t) => t._id === toppingId);
+          return {
+            id: toppingId,
+            name: topping?.name || "",
+            price: topping?.price || 0,
+            image: topping?.image || "",
+          };
+        }),
+      })
+    );
     handleCloseModal();
   };
 
@@ -125,8 +159,22 @@ export default function ProductCatalogSection({
     return 0;
   };
 
-  const handleAddToCart = (_productId: string) => {
-    setCartCount((prev) => prev + 1);
+  const handleAddToCart = (productId: string) => {
+    const product = initialProducts.find((p) => p._id === productId);
+    if (!product) return;
+
+    const price = getProductPrice(product, "medium");
+
+    dispatch(
+      addToCart({
+        productId: productId,
+        name: product.name,
+        image: product.image,
+        size: "M",
+        price,
+        quantity: 1,
+      })
+    );
   };
 
   return (
@@ -365,7 +413,7 @@ export default function ProductCatalogSection({
       )}
 
       {/* Floating Cart Button (Mobile) */}
-      <FloatingCartButton cartCount={cartCount} />
+      <FloatingCartButton cartCount={cartItems.length} />
     </>
   );
 }

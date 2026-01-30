@@ -6,6 +6,18 @@ import {
   AddAddressPayload,
   UpdateAddressPayload,
   AddressResponse,
+  CreateOrderPayload,
+  CreateOrderResponse,
+  GetTaxConfigResponse,
+  CalculateDeliveryResponse,
+  InitiatePaymentPayload,
+  InitiatePaymentResponse,
+  GetPaymentDetailsResponse,
+  GetMyOrdersResponse,
+  GetOrderDetailResponse,
+  GetRefundsResponse,
+  UpdateOrderStatusPayload,
+  UpdateOrderStatusResponse,
 } from "@/types/billing.types";
 
 class BillingService {
@@ -59,6 +71,65 @@ class BillingService {
   async deleteAddress(customerId: string, addressId: string): Promise<AddressResponse> {
     return apiService.delete<AddressResponse>(
       API_ENDPOINTS.BILLING.DELETE_ADDRESS(customerId, addressId)
+    );
+  }
+
+  async getTaxConfig(tenantId: string): Promise<GetTaxConfigResponse> {
+    return apiService.get<GetTaxConfigResponse>(API_ENDPOINTS.TAXES.GET(tenantId));
+  }
+
+  async calculateDeliveryCharge(
+    tenantId: string,
+    orderSubTotal: number
+  ): Promise<CalculateDeliveryResponse> {
+    return apiService.get<CalculateDeliveryResponse>(
+      API_ENDPOINTS.DELIVERY.CALCULATE(tenantId, orderSubTotal)
+    );
+  }
+
+  async createOrder(payload: CreateOrderPayload, userId: string): Promise<CreateOrderResponse> {
+    const idempotencyKey = `${userId}-${crypto.randomUUID()}`;
+    return apiService.post<CreateOrderResponse>(API_ENDPOINTS.ORDERS.CREATE, payload, {
+      headers: {
+        "x-idempotency-key": idempotencyKey,
+      },
+    });
+  }
+
+  async initiatePayment(
+    payload: InitiatePaymentPayload,
+    idempotencyKey: string
+  ): Promise<InitiatePaymentResponse> {
+    return apiService.post<InitiatePaymentResponse>(API_ENDPOINTS.PAYMENTS.INITIATE, payload, {
+      headers: {
+        "x-idempotency-key": idempotencyKey,
+      },
+    });
+  }
+
+  async getPaymentDetails(sessionId: string): Promise<GetPaymentDetailsResponse> {
+    return apiService.get<GetPaymentDetailsResponse>(API_ENDPOINTS.PAYMENTS.GET_DETAILS(sessionId));
+  }
+
+  async getMyOrders(): Promise<GetMyOrdersResponse> {
+    return apiService.get<GetMyOrdersResponse>(API_ENDPOINTS.ORDERS.MY_ORDERS);
+  }
+
+  async getOrderDetail(orderId: string): Promise<GetOrderDetailResponse> {
+    return apiService.get<GetOrderDetailResponse>(API_ENDPOINTS.ORDERS.DETAIL(orderId));
+  }
+
+  async getRefunds(orderId: string): Promise<GetRefundsResponse> {
+    return apiService.get<GetRefundsResponse>(API_ENDPOINTS.PAYMENTS.GET_REFUNDS(orderId));
+  }
+
+  async cancelOrder(
+    orderId: string,
+    payload: UpdateOrderStatusPayload
+  ): Promise<UpdateOrderStatusResponse> {
+    return apiService.patch<UpdateOrderStatusResponse>(
+      API_ENDPOINTS.ORDERS.UPDATE_STATUS(orderId),
+      payload
     );
   }
 }
