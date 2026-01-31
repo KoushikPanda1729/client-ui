@@ -16,9 +16,11 @@ import {
   CloseOutlined,
   UserOutlined,
   LogoutOutlined,
+  WalletOutlined,
 } from "@ant-design/icons";
 import Link from "next/link";
 import { tenantService, Tenant } from "@/services";
+import { useWallet } from "@/hooks/useWallet";
 
 const { Option } = Select;
 
@@ -43,6 +45,7 @@ export default function Navbar({
   const [loading, setLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
+  const { wallet } = useWallet();
 
   const handleLogout = async () => {
     await dispatch(logout());
@@ -221,8 +224,16 @@ export default function Navbar({
             </button>
           </nav>
 
-          {/* Cart, Phone, User Avatar and Mobile Menu */}
+          {/* Wallet, Cart, Phone, User Avatar and Mobile Menu */}
           <div className="flex items-center gap-3 sm:gap-4">
+            {isAuthenticated && (
+              <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-green-50 border border-green-200 rounded-lg">
+                <WalletOutlined className="text-green-600" />
+                <span className="text-sm font-semibold text-green-700">
+                  ₹{wallet?.balance?.toFixed(2) ?? "0.00"}
+                </span>
+              </div>
+            )}
             <Badge count={cartCount} showZero={false} color="#FF6B35">
               <ShoppingCartOutlined
                 onClick={() => router.push("/cart")}
@@ -330,6 +341,14 @@ export default function Navbar({
                   <span className="text-gray-700 font-medium">{selectedRestaurant.name}</span>
                 </div>
               )
+            )}
+            {isAuthenticated && (
+              <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg w-fit">
+                <WalletOutlined className="text-green-600" />
+                <span className="text-sm font-semibold text-green-700">
+                  Wallet: ₹{wallet?.balance?.toFixed(2) ?? "0.00"}
+                </span>
+              </div>
             )}
             <Link
               href="/#menu"

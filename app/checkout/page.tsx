@@ -3,7 +3,13 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Input, message, Modal, Checkbox } from "antd";
-import { CheckCircleFilled, PlusOutlined, EditOutlined, DeleteOutlined } from "@ant-design/icons";
+import {
+  CheckCircleFilled,
+  PlusOutlined,
+  EditOutlined,
+  DeleteOutlined,
+  EnvironmentOutlined,
+} from "@ant-design/icons";
 import { useAuth } from "@/hooks/useAuth";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState } from "@/store";
@@ -13,6 +19,7 @@ import { billingService } from "@/services/billing.service";
 import { couponService } from "@/services/coupon.service";
 import type { Customer, TaxItem } from "@/types/billing.types";
 import type { Coupon, VerifiedCoupon } from "@/types/coupon.types";
+import { WalletSection } from "@/components/wallet/WalletSection";
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -35,6 +42,8 @@ export default function CheckoutPage() {
   const [addressText, setAddressText] = useState("");
   const [isDefaultAddress, setIsDefaultAddress] = useState(false);
   const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
+  const [deletingAddressId, setDeletingAddressId] = useState<string | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const [showCouponModal, setShowCouponModal] = useState(false);
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [couponsLoading, setCouponsLoading] = useState(false);
@@ -44,6 +53,7 @@ export default function CheckoutPage() {
   const [deliveryCharge, setDeliveryCharge] = useState<number>(0);
   const [isFreeDelivery, setIsFreeDelivery] = useState(false);
   const [chargesLoading, setChargesLoading] = useState(false);
+  const [walletCreditsToUse, setWalletCreditsToUse] = useState<number>(0);
 
   useEffect(() => {
     if (!loading && !isAuthenticated) {
@@ -64,6 +74,13 @@ export default function CheckoutPage() {
         setFirstName(customerResponse.customer.firstName);
         setLastName(customerResponse.customer.lastName);
         setEmail(customerResponse.customer.email);
+
+        // Auto-select default address, or first address if no default
+        const addresses = customerResponse.customer.address;
+        if (addresses.length > 0) {
+          const defaultAddr = addresses.find((a) => a.isDefault);
+          setSelectedAddressId(defaultAddr ? defaultAddr._id : addresses[0]._id);
+        }
       } catch (error) {
         console.error("Error fetching customer data:", error);
         message.error("Failed to load customer information");
@@ -153,19 +170,23 @@ export default function CheckoutPage() {
     }
   };
 
-  const handleDeleteAddress = async (addressId: string) => {
-    if (!customer) return;
+  const handleDeleteAddress = async () => {
+    if (!customer || !deletingAddressId) return;
 
+    setDeleteLoading(true);
     try {
-      const response = await billingService.deleteAddress(customer._id, addressId);
+      const response = await billingService.deleteAddress(customer._id, deletingAddressId);
       setCustomer(response.customer);
-      if (selectedAddressId === addressId) {
+      if (selectedAddressId === deletingAddressId) {
         setSelectedAddressId("");
       }
       message.success("Address deleted successfully");
+      setDeletingAddressId(null);
     } catch (error) {
       console.error("Error deleting address:", error);
       message.error("Failed to delete address");
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -221,7 +242,8 @@ export default function CheckoutPage() {
   const taxableAmount = subtotal - discountAmount;
   const totalTaxRate = activeTaxes.reduce((sum, t) => sum + t.rate, 0);
   const taxes = Math.round(taxableAmount * (totalTaxRate / 100) * 100) / 100;
-  const total = Math.round((taxableAmount + taxes + deliveryCharge) * 100) / 100;
+  const totalBeforeWallet = Math.round((taxableAmount + taxes + deliveryCharge) * 100) / 100;
+  const finalTotal = Math.max(0, Math.round((totalBeforeWallet - walletCreditsToUse) * 100) / 100);
 
   const handleCheckout = async () => {
     if (!customer) {
@@ -276,15 +298,25 @@ export default function CheckoutPage() {
       const orderPayload: import("@/types/billing.types").CreateOrderPayload = {
         address: selectedAddress.text,
         items: orderItems,
-        total,
+        total: totalBeforeWallet,
+        finalTotal: finalTotal, // Amount after wallet credit deduction
         paymentMode,
         tenantId: selectedRestaurant.id.toString(),
         ...(verifiedCoupon ? { couponCode: couponCode, discount: discountAmount } : {}),
+        ...(walletCreditsToUse > 0 ? { walletCredits: walletCreditsToUse } : {}),
         taxTotal: taxes,
         deliveryCharge: deliveryCharge,
       };
 
       const orderResponse = await billingService.createOrder(orderPayload, user!.id.toString());
+
+      // If wallet covers the full amount, skip payment gateway
+      if (finalTotal === 0) {
+        message.success("Order placed successfully using wallet credits!");
+        dispatch(clearCart());
+        router.push("/orders");
+        return;
+      }
 
       // If payment type is Online, initiate payment and redirect to Stripe
       if (paymentType === "Online") {
@@ -325,7 +357,7 @@ export default function CheckoutPage() {
 
   return (
     <div className="min-h-screen bg-[#F5F1ED]">
-      <Navbar cartCount={4} />
+      <Navbar cartCount={cartItems.length} />
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -383,51 +415,72 @@ export default function CheckoutPage() {
             <div>
               <h2 className="text-xl font-semibold text-gray-900 mb-4">Address</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {customer?.address.map((address) => (
-                  <div
-                    key={address._id}
-                    onClick={() => setSelectedAddressId(address._id)}
-                    className={`p-4 border-2 rounded-lg cursor-pointer transition-all relative ${
-                      selectedAddressId === address._id
-                        ? "border-[#FF6B35] bg-white"
-                        : "border-gray-200 bg-white hover:border-gray-300"
-                    }`}
-                  >
-                    {selectedAddressId === address._id && (
-                      <CheckCircleFilled className="absolute top-3 right-3 text-[#FF6B35] text-xl" />
-                    )}
-                    {address.isDefault && (
-                      <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded mb-2 inline-block">
-                        Default
-                      </span>
-                    )}
-                    <p className="text-sm text-gray-700 mb-3">{address.text}</p>
-                    <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        onClick={() =>
-                          handleEditAddress(address._id, address.text, address.isDefault)
-                        }
-                        className="text-blue-600 hover:text-blue-800 text-sm"
-                      >
-                        <EditOutlined /> Edit
-                      </button>
-                      <button
-                        onClick={() => handleDeleteAddress(address._id)}
-                        className="text-red-600 hover:text-red-800 text-sm"
-                      >
-                        <DeleteOutlined /> Delete
-                      </button>
+                {customer?.address.map((address) => {
+                  const isSelected = selectedAddressId === address._id;
+                  return (
+                    <div
+                      key={address._id}
+                      onClick={() => setSelectedAddressId(address._id)}
+                      className={`p-4 border-2 rounded-xl cursor-pointer transition-all relative ${
+                        isSelected
+                          ? "border-[#FF6B35] bg-orange-50 shadow-sm"
+                          : "border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm"
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div
+                          className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
+                            isSelected ? "bg-[#FF6B35] text-white" : "bg-gray-100 text-gray-400"
+                          }`}
+                        >
+                          <EnvironmentOutlined className="text-base" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            {address.isDefault && (
+                              <span className="text-[10px] font-semibold uppercase bg-green-100 text-green-700 px-1.5 py-0.5 rounded">
+                                Default
+                              </span>
+                            )}
+                            {isSelected && <CheckCircleFilled className="text-[#FF6B35] ml-auto" />}
+                          </div>
+                          <p className="text-sm text-gray-800 leading-relaxed mb-3">
+                            {address.text}
+                          </p>
+                          <div
+                            className="flex gap-3 border-t border-gray-100 pt-2"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <button
+                              onClick={() =>
+                                handleEditAddress(address._id, address.text, address.isDefault)
+                              }
+                              className="text-xs text-gray-500 hover:text-blue-600 font-medium transition-colors flex items-center gap-1"
+                            >
+                              <EditOutlined /> Edit
+                            </button>
+                            <button
+                              onClick={() => setDeletingAddressId(address._id)}
+                              className="text-xs text-gray-500 hover:text-red-600 font-medium transition-colors flex items-center gap-1"
+                            >
+                              <DeleteOutlined /> Delete
+                            </button>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
 
                 {/* Add Address Button */}
                 <button
                   onClick={handleAddAddress}
-                  className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-[#FF6B35] transition-colors flex flex-col items-center justify-center gap-2 min-h-30"
+                  className="p-4 border-2 border-dashed border-gray-300 rounded-xl hover:border-[#FF6B35] hover:bg-orange-50 transition-all flex flex-col items-center justify-center gap-2 min-h-[120px]"
                 >
-                  <PlusOutlined className="text-2xl text-gray-400" />
-                  <span className="text-gray-600 font-medium">Add address</span>
+                  <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
+                    <PlusOutlined className="text-lg text-gray-400" />
+                  </div>
+                  <span className="text-sm text-gray-500 font-medium">Add new address</span>
                 </button>
               </div>
             </div>
@@ -447,35 +500,37 @@ export default function CheckoutPage() {
               </div>
             </div>
 
-            {/* Payment Type Section */}
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Payment type</h2>
-              <div className="grid grid-cols-2 gap-4">
-                <div
-                  onClick={() => setPaymentType("COD")}
-                  className={`p-4 border-2 rounded-lg cursor-pointer transition-all relative ${
-                    paymentType === "COD"
-                      ? "border-[#FF6B35] bg-white"
-                      : "border-gray-200 bg-white hover:border-gray-300"
-                  }`}
-                >
-                  {paymentType === "COD" && (
-                    <CheckCircleFilled className="absolute top-3 right-3 text-[#FF6B35] text-xl" />
-                  )}
-                  <p className="font-semibold text-gray-900">COD</p>
-                </div>
-                <div
-                  onClick={() => setPaymentType("Online")}
-                  className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                    paymentType === "Online"
-                      ? "border-[#FF6B35] bg-white"
-                      : "border-gray-200 bg-white hover:border-gray-300"
-                  }`}
-                >
-                  <p className="font-semibold text-gray-900">Online</p>
+            {/* Payment Type Section - hidden when wallet covers full amount */}
+            {finalTotal > 0 && (
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900 mb-4">Payment type</h2>
+                <div className="grid grid-cols-2 gap-4">
+                  <div
+                    onClick={() => setPaymentType("COD")}
+                    className={`p-4 border-2 rounded-lg cursor-pointer transition-all relative ${
+                      paymentType === "COD"
+                        ? "border-[#FF6B35] bg-white"
+                        : "border-gray-200 bg-white hover:border-gray-300"
+                    }`}
+                  >
+                    {paymentType === "COD" && (
+                      <CheckCircleFilled className="absolute top-3 right-3 text-[#FF6B35] text-xl" />
+                    )}
+                    <p className="font-semibold text-gray-900">COD</p>
+                  </div>
+                  <div
+                    onClick={() => setPaymentType("Online")}
+                    className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                      paymentType === "Online"
+                        ? "border-[#FF6B35] bg-white"
+                        : "border-gray-200 bg-white hover:border-gray-300"
+                    }`}
+                  >
+                    <p className="font-semibold text-gray-900">Online</p>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Right Column - Payment Summary */}
@@ -515,7 +570,7 @@ export default function CheckoutPage() {
               <div className="border-t pt-4 mb-6">
                 <div className="flex justify-between text-lg font-bold text-gray-900">
                   <span>Order total</span>
-                  <span>₹{total}</span>
+                  <span>₹{finalTotal}</span>
                 </div>
               </div>
 
@@ -575,6 +630,14 @@ export default function CheckoutPage() {
                 </div>
               )}
 
+              {/* Wallet Section */}
+              {user && (
+                <WalletSection
+                  orderTotal={totalBeforeWallet}
+                  onWalletAmountChange={(amount: number) => setWalletCreditsToUse(amount)}
+                />
+              )}
+
               {/* Checkout Button */}
               <button
                 onClick={handleCheckout}
@@ -590,36 +653,103 @@ export default function CheckoutPage() {
 
       {/* Address Modal */}
       <Modal
-        title={editingAddressId ? "Edit Address" : "Add Address"}
+        title={
+          <div className="flex items-center gap-2">
+            <EnvironmentOutlined className="text-[#FF6B35]" />
+            <span>{editingAddressId ? "Edit Address" : "Add New Address"}</span>
+          </div>
+        }
         open={showAddressModal}
-        onOk={handleSaveAddress}
         onCancel={() => {
           setShowAddressModal(false);
           setAddressText("");
           setIsDefaultAddress(false);
           setEditingAddressId(null);
         }}
-        okText="Save"
-        cancelText="Cancel"
+        footer={
+          <div className="flex justify-end gap-3 pt-2">
+            <button
+              onClick={() => {
+                setShowAddressModal(false);
+                setAddressText("");
+                setIsDefaultAddress(false);
+                setEditingAddressId(null);
+              }}
+              className="px-5 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSaveAddress}
+              disabled={!addressText.trim()}
+              className="px-5 py-2 bg-[#FF6B35] hover:bg-[#FF5520] text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {editingAddressId ? "Update Address" : "Save Address"}
+            </button>
+          </div>
+        }
       >
-        <div className="space-y-4">
+        <div className="space-y-5 py-2">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">Full Address</label>
             <Input.TextArea
-              placeholder="Enter full address (e.g., 123 Main Street, City, State, ZIP)"
+              placeholder="House/Flat No., Street, Landmark, City, State, PIN Code"
               value={addressText}
               onChange={(e) => setAddressText(e.target.value)}
-              rows={3}
+              rows={4}
+              className="!rounded-lg"
+              showCount
+              maxLength={200}
             />
           </div>
-          <div>
+          <div className="bg-gray-50 rounded-lg p-3">
             <Checkbox
               checked={isDefaultAddress}
               onChange={(e) => setIsDefaultAddress(e.target.checked)}
             >
-              Set as default address
+              <span className="text-sm text-gray-700">Set as default delivery address</span>
             </Checkbox>
           </div>
+        </div>
+      </Modal>
+
+      {/* Delete Address Confirmation Modal */}
+      <Modal
+        title={
+          <div className="flex items-center gap-2 text-red-600">
+            <DeleteOutlined />
+            <span>Delete Address</span>
+          </div>
+        }
+        open={!!deletingAddressId}
+        onCancel={() => setDeletingAddressId(null)}
+        footer={
+          <div className="flex justify-end gap-3 pt-2">
+            <button
+              onClick={() => setDeletingAddressId(null)}
+              className="px-5 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleDeleteAddress}
+              disabled={deleteLoading}
+              className="px-5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+            >
+              {deleteLoading ? "Deleting..." : "Yes, Delete"}
+            </button>
+          </div>
+        }
+        width={420}
+      >
+        <div className="py-4">
+          <p className="text-gray-600 mb-3">Are you sure you want to delete this address?</p>
+          <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+            <p className="text-sm text-gray-800">
+              {customer?.address.find((a) => a._id === deletingAddressId)?.text}
+            </p>
+          </div>
+          <p className="text-xs text-gray-500 mt-3">This action cannot be undone.</p>
         </div>
       </Modal>
 

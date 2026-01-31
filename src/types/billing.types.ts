@@ -67,8 +67,10 @@ export interface CreateOrderPayload {
   taxTotal?: number;
   deliveryCharge?: number;
   total: number;
+  finalTotal: number; // Total after wallet credit deduction
   paymentMode: string;
   tenantId: string;
+  walletCredits?: number; // Wallet credits used for this order
 }
 
 export interface OrderTax {
@@ -213,6 +215,8 @@ export interface Order {
   taxes: OrderTax[];
   taxTotal: number;
   total: number;
+  walletCreditsApplied?: number;
+  finalTotal: number;
   paymentMode: string;
   paymentStatus: string;
   status: string;

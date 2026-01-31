@@ -20,13 +20,51 @@ export default function CartPage() {
   const user = useSelector((state: RootState) => state.auth.user);
   const cartItems = useSelector((state: RootState) => state.cart.items);
   const subtotal = useSelector((state: RootState) => state.cart.subtotal);
+  const selectedRestaurant = useSelector((state: RootState) => state.cart.selectedRestaurant);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [taxes, setTaxes] = useState(0);
+  const [taxLabel, setTaxLabel] = useState("");
+  const [deliveryCharge, setDeliveryCharge] = useState(0);
+  const [isFreeDelivery, setIsFreeDelivery] = useState(false);
+  const [chargesLoading, setChargesLoading] = useState(false);
 
   useEffect(() => {
     if (!loading && !isAuthenticated) {
       router.push("/login");
     }
   }, [isAuthenticated, loading, router]);
+
+  // Fetch tax and delivery charges
+  useEffect(() => {
+    const fetchCharges = async () => {
+      if (!selectedRestaurant || cartItems.length === 0) return;
+
+      setChargesLoading(true);
+      try {
+        const tenantId = selectedRestaurant.id.toString();
+        const [taxResponse, deliveryResponse] = await Promise.all([
+          billingService.getTaxConfig(tenantId),
+          billingService.calculateDeliveryCharge(tenantId, subtotal),
+        ]);
+
+        const activeTaxes = taxResponse.taxConfig.taxes.filter((t) => t.isActive);
+        const totalTaxRate = activeTaxes.reduce((sum, t) => sum + t.rate, 0);
+        const taxAmount = Math.round(subtotal * (totalTaxRate / 100) * 100) / 100;
+        setTaxes(taxAmount);
+        setTaxLabel(activeTaxes.map((t) => `${t.name} ${t.rate}%`).join(" + "));
+        setDeliveryCharge(deliveryResponse.deliveryCharge);
+        setIsFreeDelivery(deliveryResponse.isFreeDelivery);
+      } catch (error) {
+        console.error("Error fetching charges:", error);
+      } finally {
+        setChargesLoading(false);
+      }
+    };
+
+    fetchCharges();
+  }, [selectedRestaurant, subtotal, cartItems.length]);
+
+  const estimatedTotal = Math.round((subtotal + taxes + deliveryCharge) * 100) / 100;
 
   const handleQuantityChange = (itemId: number, newQuantity: number) => {
     if (newQuantity < 1) return;
@@ -209,14 +247,24 @@ export default function CartPage() {
                     </span>
                     <span className="font-semibold">₹{subtotal}</span>
                   </div>
+                  {taxes > 0 && (
+                    <div className="flex justify-between text-gray-700">
+                      <span>Taxes{taxLabel && ` (${taxLabel})`}</span>
+                      <span className="font-semibold">{chargesLoading ? "..." : `₹${taxes}`}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between text-gray-700">
                     <span>Delivery</span>
-                    <span className="font-semibold text-green-600">FREE</span>
+                    <span className={`font-semibold ${isFreeDelivery ? "text-green-600" : ""}`}>
+                      {chargesLoading ? "..." : isFreeDelivery ? "FREE" : `₹${deliveryCharge}`}
+                    </span>
                   </div>
                   <div className="border-t pt-4">
                     <div className="flex justify-between items-center">
-                      <span className="text-lg font-bold text-gray-900">Total</span>
-                      <span className="text-2xl font-bold text-[#FF6B35]">₹{subtotal}</span>
+                      <span className="text-lg font-bold text-gray-900">Estimated Total</span>
+                      <span className="text-2xl font-bold text-[#FF6B35]">
+                        {chargesLoading ? "..." : `₹${estimatedTotal}`}
+                      </span>
                     </div>
                   </div>
                 </div>
