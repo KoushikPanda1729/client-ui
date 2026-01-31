@@ -240,8 +240,10 @@ export default function CheckoutPage() {
   const discountPercent = verifiedCoupon?.discount || 0;
   const discountAmount = Math.round(((subtotal * discountPercent) / 100) * 100) / 100;
   const taxableAmount = subtotal - discountAmount;
-  const totalTaxRate = activeTaxes.reduce((sum, t) => sum + t.rate, 0);
-  const taxes = Math.round(taxableAmount * (totalTaxRate / 100) * 100) / 100;
+  // Calculate each tax individually and round, matching backend logic
+  const taxes = activeTaxes.reduce((sum, t) => {
+    return sum + Math.round(taxableAmount * (t.rate / 100) * 100) / 100;
+  }, 0);
   const totalBeforeWallet = Math.round((taxableAmount + taxes + deliveryCharge) * 100) / 100;
   const finalTotal = Math.max(0, Math.round((totalBeforeWallet - walletCreditsToUse) * 100) / 100);
 
@@ -281,8 +283,8 @@ export default function CheckoutPage() {
         name: item.name,
         image: item.image,
         qty: item.quantity,
-        priceConfiguration: {
-          small: item.size === "S" ? "small" : item.size === "M" ? "medium" : "large",
+        priceConfiguration: item.priceConfiguration || {
+          size: item.size === "S" ? "small" : item.size === "M" ? "medium" : "large",
         },
         toppings: (item.toppings || []).map((t) => ({
           _id: t.id.toString(),
@@ -793,16 +795,7 @@ export default function CheckoutPage() {
                   </button>
                 </div>
                 <div className="flex gap-4 text-xs text-gray-600 mt-3">
-                  <span>
-                    Discount:{" "}
-                    {coupon.discountType === "percentage"
-                      ? `${coupon.discountValue}%`
-                      : `₹${coupon.discountValue}`}
-                  </span>
-                  {coupon.minOrderValue && <span>Min Order: ₹{coupon.minOrderValue}</span>}
-                  {coupon.maxDiscountAmount && (
-                    <span>Max Discount: ₹{coupon.maxDiscountAmount}</span>
-                  )}
+                  <span>Discount: {coupon.discount}%</span>
                 </div>
               </div>
             ))}

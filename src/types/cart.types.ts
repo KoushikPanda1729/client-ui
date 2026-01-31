@@ -7,6 +7,7 @@ export interface CartItem {
   crust?: "Thick" | "Thin";
   price: number;
   quantity: number;
+  priceConfiguration?: Record<string, string>;
   toppings?: {
     id: string;
     name: string;

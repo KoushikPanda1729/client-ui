@@ -32,6 +32,7 @@ export default function ProductCatalogSection({
   const [selectedProduct, setSelectedProduct] = useState<APIProduct | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalSelectedSize, setModalSelectedSize] = useState<string>("medium");
+  const [modalSelectedOptions, setModalSelectedOptions] = useState<Record<string, string>>({});
   const [selectedCrust, setSelectedCrust] = useState<"Thick" | "Thin">("Thick");
   const [selectedToppings, setSelectedToppings] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -82,7 +83,18 @@ export default function ProductCatalogSection({
 
   const handleProductClick = (product: APIProduct) => {
     setSelectedProduct(product);
-    setModalSelectedSize("medium");
+    // Initialize selected options for each price configuration key
+    const initialOptions: Record<string, string> = {};
+    if (product.priceConfiguration) {
+      Object.entries(product.priceConfiguration).forEach(([key, config]) => {
+        const options = Object.keys(config.availableOptions);
+        if (options.length > 0) {
+          initialOptions[key] = options[0];
+        }
+      });
+    }
+    setModalSelectedOptions(initialOptions);
+    setModalSelectedSize(initialOptions[Object.keys(initialOptions)[0]] || "small");
     setSelectedCrust("Thick");
     setSelectedToppings([]);
     setIsModalOpen(true);
@@ -103,14 +115,15 @@ export default function ProductCatalogSection({
   const handleAddToCartFromModal = () => {
     if (!selectedProduct) return;
 
-    const basePrice = getProductPrice(selectedProduct, modalSelectedSize);
-    const toppingsPrice = selectedToppings.reduce((total, toppingId) => {
-      const topping = apiToppings.find((t) => t._id === toppingId);
-      return total + (topping?.price || 0);
-    }, 0);
-    const totalPrice = basePrice + toppingsPrice;
+    const totalPrice = calculateTotalPrice();
 
-    const size = modalSelectedSize === "small" ? "S" : modalSelectedSize === "medium" ? "M" : "L";
+    // Determine size from the first base price config
+    const priceConfig = selectedProduct.priceConfiguration;
+    const baseKey = priceConfig
+      ? Object.keys(priceConfig).find((key) => priceConfig[key].priceType === "base")
+      : undefined;
+    const selectedSize = baseKey ? modalSelectedOptions[baseKey] || "small" : "small";
+    const size = selectedSize === "small" ? "S" : selectedSize === "medium" ? "M" : "L";
 
     dispatch(
       addToCart({
@@ -121,6 +134,7 @@ export default function ProductCatalogSection({
         crust: selectedCrust,
         price: totalPrice,
         quantity: 1,
+        priceConfiguration: { ...modalSelectedOptions },
         toppings: selectedToppings.map((toppingId) => {
           const topping = apiToppings.find((t) => t._id === toppingId);
           return {
@@ -137,23 +151,37 @@ export default function ProductCatalogSection({
 
   const calculateTotalPrice = () => {
     if (!selectedProduct) return 0;
-    const basePrice = getProductPrice(selectedProduct, modalSelectedSize);
+    const priceConfig = selectedProduct.priceConfiguration;
+    let baseTotal = 0;
+    if (priceConfig) {
+      Object.entries(priceConfig).forEach(([key, config]) => {
+        const selectedOption = modalSelectedOptions[key];
+        if (selectedOption && config.availableOptions[selectedOption] !== undefined) {
+          baseTotal += config.availableOptions[selectedOption];
+        }
+      });
+    }
     const toppingsPrice = selectedToppings.reduce((total, toppingId) => {
       const topping = apiToppings.find((t) => t._id === toppingId);
       return total + (topping?.price || 0);
     }, 0);
-    return basePrice + toppingsPrice;
+    return baseTotal + toppingsPrice;
   };
 
   const handleCategorySelect = (categoryId: string | undefined) => {
     setSelectedCategoryId(categoryId);
   };
 
-  const getProductPrice = (product: APIProduct, size: string = "medium") => {
+  const getProductPrice = (product: APIProduct, size: string = "small") => {
     const priceConfig = product.priceConfiguration;
-    if (priceConfig && priceConfig.small && priceConfig.small.availableOptions) {
+    if (!priceConfig) return 0;
+    // Find the first "base" priceType entry
+    const baseKey = Object.keys(priceConfig).find((key) => priceConfig[key].priceType === "base");
+    if (baseKey && priceConfig[baseKey].availableOptions) {
       return (
-        priceConfig.small.availableOptions[size] || priceConfig.small.availableOptions.medium || 0
+        priceConfig[baseKey].availableOptions[size] ||
+        Object.values(priceConfig[baseKey].availableOptions)[0] ||
+        0
       );
     }
     return 0;
@@ -163,16 +191,28 @@ export default function ProductCatalogSection({
     const product = initialProducts.find((p) => p._id === productId);
     if (!product) return;
 
-    const price = getProductPrice(product, "medium");
+    const price = getProductPrice(product, "small");
+
+    // Build default priceConfiguration with first option for each key
+    const defaultPriceConfig: Record<string, string> = {};
+    if (product.priceConfiguration) {
+      Object.entries(product.priceConfiguration).forEach(([key, config]) => {
+        const options = Object.keys(config.availableOptions);
+        if (options.length > 0) {
+          defaultPriceConfig[key] = options[0];
+        }
+      });
+    }
 
     dispatch(
       addToCart({
         productId: productId,
         name: product.name,
         image: product.image,
-        size: "M",
+        size: "S",
         price,
         quantity: 1,
+        priceConfiguration: defaultPriceConfig,
       })
     );
   };
@@ -284,31 +324,36 @@ export default function ProductCatalogSection({
                 {/* Description */}
                 <p className="text-gray-600 mb-6">{selectedProduct.description}</p>
 
-                {/* Size Selection */}
-                <div className="mb-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Choose Size</h3>
-                  <div className="flex gap-2">
-                    {selectedProduct.priceConfiguration?.small?.availableOptions &&
-                      Object.keys(selectedProduct.priceConfiguration.small.availableOptions).map(
-                        (size) => (
+                {/* Price Configuration Selections */}
+                {selectedProduct.priceConfiguration &&
+                  Object.entries(selectedProduct.priceConfiguration).map(([key, config]) => (
+                    <div className="mb-6" key={key}>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-3 capitalize">
+                        Choose {key}
+                      </h3>
+                      <div className="flex flex-wrap gap-2">
+                        {Object.entries(config.availableOptions).map(([option, price]) => (
                           <button
-                            key={size}
+                            key={option}
                             onClick={(e) => {
                               e.stopPropagation();
-                              setModalSelectedSize(size);
+                              setModalSelectedOptions((prev) => ({
+                                ...prev,
+                                [key]: option,
+                              }));
                             }}
-                            className={`px-8 py-2.5 rounded-full font-medium transition-all capitalize ${
-                              modalSelectedSize === size
+                            className={`px-6 py-2.5 rounded-full font-medium transition-all capitalize ${
+                              modalSelectedOptions[key] === option
                                 ? "bg-gray-200 text-gray-900"
                                 : "bg-gray-100 text-gray-600 hover:bg-gray-150"
                             }`}
                           >
-                            {size}
+                            {option} <span className="text-xs text-gray-500">₹{price}</span>
                           </button>
-                        )
-                      )}
-                  </div>
-                </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
 
                 {/* Crust Selection */}
                 {selectedProduct.category?.attributes?.find((attr) => attr.name === "Crust") && (

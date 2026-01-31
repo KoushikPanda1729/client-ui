@@ -2,27 +2,20 @@ export interface Coupon {
   _id: string;
   code: string;
   title: string;
-  description?: string;
-  discountType: "percentage" | "fixed";
-  discountValue: number;
-  minOrderValue?: number;
-  maxDiscountAmount?: number;
-  validFrom: string;
-  validUntil: string;
+  discount: number;
+  validUpto: string;
   isActive: boolean;
-  tenantId: number;
+  tenantId: string;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface CouponResponse {
+  message: string;
   data: Coupon[];
-  pagination: {
-    total: number;
-    currentPage: number;
-    perPage: number;
-    totalPages: number;
-  };
+  total: number;
+  page: number;
+  limit: number;
 }
 
 export interface VerifyCouponRequest {
