@@ -6,6 +6,7 @@ import { Table, Tag, message } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { EyeOutlined } from "@ant-design/icons";
 import { useAuth } from "@/hooks/useAuth";
+import { useOrderSocket } from "@/hooks/useOrderSocket";
 import { billingService } from "@/services/billing.service";
 import type { Order } from "@/types/billing.types";
 import Link from "next/link";
@@ -28,6 +29,17 @@ export default function OrdersPage() {
       router.push("/login");
     }
   }, [isAuthenticated, loading, router]);
+
+  // Real-time order status updates via WebSocket
+  useOrderSocket({
+    onOrderStatusUpdate: (updatedOrder) => {
+      setOrders((prev) =>
+        prev.map((order) =>
+          order._id === updatedOrder._id ? { ...order, ...updatedOrder } : order
+        )
+      );
+    },
+  });
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -57,6 +69,7 @@ export default function OrdersPage() {
         return "blue";
       case "preparing":
         return "cyan";
+      case "out_for_delivery":
       case "out for delivery":
         return "purple";
       case "delivered":

@@ -6,6 +6,7 @@ import { Tag, Steps, message, Modal } from "antd";
 import { ArrowLeftOutlined, ExclamationCircleOutlined } from "@ant-design/icons";
 import Image from "next/image";
 import { useAuth } from "@/hooks/useAuth";
+import { useOrderSocket } from "@/hooks/useOrderSocket";
 import { billingService } from "@/services/billing.service";
 import type { Order, RefundDetails } from "@/types/billing.types";
 import Navbar from "@/components/layout/Navbar";
@@ -22,6 +23,15 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ orderId
   const [refundsLoading, setRefundsLoading] = useState(true);
   const [cancelling, setCancelling] = useState(false);
   const cartItemsCount = useSelector((state: RootState) => state.cart.items.length);
+
+  // Real-time order status updates via WebSocket
+  useOrderSocket({
+    onOrderStatusUpdate: (updatedOrder) => {
+      if (updatedOrder._id === resolvedParams.orderId) {
+        setOrder((prev) => (prev ? { ...prev, ...updatedOrder } : prev));
+      }
+    },
+  });
 
   useEffect(() => {
     if (!loading && !isAuthenticated) {
@@ -73,6 +83,7 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ orderId
         return "blue";
       case "preparing":
         return "cyan";
+      case "out_for_delivery":
       case "out for delivery":
         return "purple";
       case "delivered":
@@ -118,6 +129,7 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ orderId
         return 1;
       case "preparing":
         return 2;
+      case "out_for_delivery":
       case "out for delivery":
         return 3;
       case "delivered":
