@@ -21,6 +21,7 @@ import {
 import Link from "next/link";
 import { tenantService, Tenant } from "@/services";
 import { useWallet } from "@/hooks/useWallet";
+import WalletDrawer from "@/components/wallet/WalletDrawer";
 
 const { Option } = Select;
 
@@ -46,6 +47,7 @@ export default function Navbar({
   const [currentPage, setCurrentPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const { wallet } = useWallet();
+  const [walletDrawerOpen, setWalletDrawerOpen] = useState(false);
 
   const handleLogout = async () => {
     await dispatch(logout());
@@ -227,7 +229,10 @@ export default function Navbar({
           {/* Wallet, Cart, Phone, User Avatar and Mobile Menu */}
           <div className="flex items-center gap-3 sm:gap-4">
             {isAuthenticated && (
-              <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-green-50 border border-green-200 rounded-lg">
+              <div
+                onClick={() => setWalletDrawerOpen(true)}
+                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-green-50 border border-green-200 rounded-lg cursor-pointer hover:bg-green-100 transition-colors"
+              >
                 <WalletOutlined className="text-green-600" />
                 <span className="text-sm font-semibold text-green-700">
                   ₹{wallet?.balance?.toFixed(2) ?? "0.00"}
@@ -343,7 +348,13 @@ export default function Navbar({
               )
             )}
             {isAuthenticated && (
-              <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg w-fit">
+              <div
+                onClick={() => {
+                  setWalletDrawerOpen(true);
+                  setMobileMenuOpen(false);
+                }}
+                className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg w-fit cursor-pointer hover:bg-green-100 transition-colors"
+              >
                 <WalletOutlined className="text-green-600" />
                 <span className="text-sm font-semibold text-green-700">
                   Wallet: ₹{wallet?.balance?.toFixed(2) ?? "0.00"}
@@ -416,6 +427,14 @@ export default function Navbar({
           </div>
         )}
       </div>
+      {isAuthenticated && (
+        <WalletDrawer
+          open={walletDrawerOpen}
+          onClose={() => setWalletDrawerOpen(false)}
+          balance={wallet?.balance ?? 0}
+          currency={wallet?.currency ?? "INR"}
+        />
+      )}
     </header>
   );
 }
