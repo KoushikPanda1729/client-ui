@@ -111,8 +111,10 @@ class BillingService {
     return apiService.get<GetPaymentDetailsResponse>(API_ENDPOINTS.PAYMENTS.GET_DETAILS(sessionId));
   }
 
-  async getMyOrders(): Promise<GetMyOrdersResponse> {
-    return apiService.get<GetMyOrdersResponse>(API_ENDPOINTS.ORDERS.MY_ORDERS);
+  async getMyOrders(page: number = 1, limit: number = 10): Promise<GetMyOrdersResponse> {
+    return apiService.get<GetMyOrdersResponse>(
+      `${API_ENDPOINTS.ORDERS.MY_ORDERS}?page=${page}&limit=${limit}`
+    );
   }
 
   async getOrderDetail(orderId: string): Promise<GetOrderDetailResponse> {
