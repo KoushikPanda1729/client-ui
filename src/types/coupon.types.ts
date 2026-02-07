@@ -2,6 +2,7 @@ export interface Coupon {
   _id: string;
   code: string;
   title: string;
+  description?: string;
   discount: number;
   validUpto: string;
   isActive: boolean;
