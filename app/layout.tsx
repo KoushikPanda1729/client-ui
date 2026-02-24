@@ -4,6 +4,8 @@ import "./globals.css";
 import { ReduxProvider } from "@/lib/redux-provider";
 import { AntdRegistry } from "@ant-design/nextjs-registry";
 import { AuthInitializer } from "@/components/auth";
+import CallProvider from "@/components/call/CallProvider";
+import ChatProvider from "@/components/chat/ChatProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -33,7 +35,11 @@ export default function RootLayout({
       >
         <AntdRegistry>
           <ReduxProvider>
-            <AuthInitializer>{children}</AuthInitializer>
+            <AuthInitializer>
+              <CallProvider>
+                <ChatProvider>{children}</ChatProvider>
+              </CallProvider>
+            </AuthInitializer>
           </ReduxProvider>
         </AntdRegistry>
       </body>
